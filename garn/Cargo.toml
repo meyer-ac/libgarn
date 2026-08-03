@@ -1,0 +1,17 @@
+[package]
+name = "garn"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cfg-if = "1.0.4"
+garn-proc-macros = { path = "../garn-proc-macros" }
+
+[build-dependencies]
+cbindgen = "0.29.4"
+
+[lib]
+crate-type = ["cdylib"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(cbindgen)'] }
