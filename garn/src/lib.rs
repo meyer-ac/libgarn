@@ -1,3 +1,8 @@
+#[doc(hidden)]
+pub mod __macro_support {
+    pub use crate::interface::error_handling::ErrorType;
+}
+
 mod interface;
 
 cfg_if::cfg_if! {

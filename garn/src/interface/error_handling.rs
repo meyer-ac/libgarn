@@ -3,18 +3,18 @@ use std::ffi::{c_char, CStr};
 #[macro_export]
 macro_rules! ffi_error {
     ($error_type:ident) => {
-        crate::interface::error_handling::Error::new(garn_proc_macros::prefix_error_type!($error_type), FN_NAME)
+        Error::new(garn_proc_macros::prefix_error_type!($error_type), FN_NAME)
     };
 
     ($error_type:ident, $arg:ident) => {
-        crate::interface::error_handling::Error::with_arg(garn_proc_macros::prefix_error_type!($error_type), FN_NAME, garn_proc_macros::arg_name_const_identifier!($arg))
+        Error::with_arg(garn_proc_macros::prefix_error_type!($error_type), FN_NAME, garn_proc_macros::arg_name_const_identifier!($arg))
     };
 }
 
 #[macro_export]
 macro_rules! ffi_no_error {
     () => {
-        crate::interface::error_handling::ffi_error!(NoError)
+        ffi_error!(NoError)
     };
 }
 

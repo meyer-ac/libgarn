@@ -44,7 +44,7 @@ pub fn c_interface_reflect(_attr: TokenStream, item: TokenStream) -> TokenStream
                 other => {
                     return syn::Error::new_spanned(
                         other,
-                        "c_str_consts: arguments must be simple identifiers, not destructuring patterns",
+                        "c_interface_reflect: arguments must be simple identifiers, not destructuring patterns",
                     )
                         .to_compile_error()
                         .into();
@@ -69,7 +69,7 @@ pub fn c_interface_reflect(_attr: TokenStream, item: TokenStream) -> TokenStream
 #[proc_macro]
 pub fn prefix_error_type(input: TokenStream) -> TokenStream {
     let name = parse_macro_input!(input as Ident);
-    quote! { crate::interface::error_handling::ErrorType::#name }.into()
+    quote! { crate::__macro_support::ErrorType::#name }.into()
 }
 
 #[proc_macro]
