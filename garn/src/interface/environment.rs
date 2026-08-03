@@ -1,7 +1,7 @@
 use std::ffi::CStr;
 use std::mem::MaybeUninit;
 use std::os::raw::c_char;
-use garn_proc_macros::c_interface_reflect;
+use garn_proc_macros::ffi_error_propagation;
 use crate::environment::Environment;
 use crate::interface::error_handling::{ffi_error, ffi_no_error, Error};
 use crate::mutex::Mutex;
@@ -15,7 +15,7 @@ pub extern "C" fn garn_environment_new() -> *mut MaybeUninit<Environment> {
 }
 
 #[unsafe(no_mangle)]
-#[c_interface_reflect]
+#[ffi_error_propagation]
 pub unsafe extern "C" fn garn_environment_init(env: *mut MaybeUninit<Environment>, name: *const c_char) -> Error {
     if env.is_null() {
         return ffi_error!(NonNullReferenceViolation, env);
@@ -40,7 +40,7 @@ pub unsafe extern "C" fn garn_environment_init(env: *mut MaybeUninit<Environment
 }
 
 #[unsafe(no_mangle)]
-#[c_interface_reflect]
+#[ffi_error_propagation]
 pub unsafe extern "C" fn garn_environment_destroy(env: *mut Environment) -> Error {
     if env.is_null() {
         return ffi_error!(NonNullReferenceViolation, env);
@@ -54,7 +54,7 @@ pub unsafe extern "C" fn garn_environment_destroy(env: *mut Environment) -> Erro
 }
 
 #[unsafe(no_mangle)]
-#[c_interface_reflect]
+#[ffi_error_propagation]
 pub unsafe extern "C" fn garn_environment_open_mutex(env: *mut Environment, mutex: *mut MaybeUninit<Mutex>, name: *const c_char) -> Error {
     let Some(env) = (unsafe {env.as_mut()}) else {
         return ffi_error!(NonNullReferenceViolation, env);

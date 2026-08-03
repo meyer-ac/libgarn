@@ -15,7 +15,7 @@ fn c_str_lit(s: &str) -> Literal {
 }
 
 #[proc_macro_attribute]
-pub fn c_interface_reflect(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn ffi_error_propagation(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(item as ItemFn);
     let ItemFn { attrs, vis, sig, block, .. } = input_fn;
 

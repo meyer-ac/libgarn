@@ -1,5 +1,5 @@
 use std::mem::MaybeUninit;
-use garn_proc_macros::c_interface_reflect;
+use garn_proc_macros::ffi_error_propagation;
 use crate::interface::error_handling::{ffi_error, ffi_no_error, Error};
 use crate::mutex::Mutex;
 
@@ -12,7 +12,7 @@ pub extern "C" fn garn_mutex_new() -> *mut MaybeUninit<Mutex> {
 }
 
 #[unsafe(no_mangle)]
-#[c_interface_reflect]
+#[ffi_error_propagation]
 pub unsafe extern "C" fn garn_mutex_lock(mutex: *const Mutex) -> Error {
     let Some(mutex) = (unsafe {mutex.as_ref()}) else {
         return ffi_error!(NonNullReferenceViolation, mutex);
@@ -24,7 +24,7 @@ pub unsafe extern "C" fn garn_mutex_lock(mutex: *const Mutex) -> Error {
 }
 
 #[unsafe(no_mangle)]
-#[c_interface_reflect]
+#[ffi_error_propagation]
 pub unsafe extern "C" fn garn_mutex_unlock(mutex: *const Mutex) -> Error {
     let Some(mutex) = (unsafe {mutex.as_ref()}) else {
         return ffi_error!(NonNullReferenceViolation, mutex);
@@ -36,7 +36,7 @@ pub unsafe extern "C" fn garn_mutex_unlock(mutex: *const Mutex) -> Error {
 }
 
 #[unsafe(no_mangle)]
-#[c_interface_reflect]
+#[ffi_error_propagation]
 pub unsafe extern "C" fn garn_mutex_try_lock(mutex: *const Mutex) -> Error {
     let Some(mutex) = (unsafe {mutex.as_ref()}) else {
         return ffi_error!(NonNullReferenceViolation, mutex);
