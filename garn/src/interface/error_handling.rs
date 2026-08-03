@@ -31,6 +31,8 @@ pub enum ErrorType {
     NoError = 0,
     NonNullReferenceViolation = 1,
     InvalidString = 2,
+    MutexAlreadyOpened = 3,
+    ThreadOwnershipViolation = 4,
 }
 
 impl ErrorType {
@@ -38,7 +40,9 @@ impl ErrorType {
         match self {
             ErrorType::NoError => c"No error occurred.",
             ErrorType::NonNullReferenceViolation => c"A null-reference was provided to a garn-function expecting a non-null-reference.",
-            ErrorType::InvalidString => c"An invalid UTF8-string was provided to a garn-function."
+            ErrorType::InvalidString => c"An invalid UTF8-string was provided to a garn-function.",
+            ErrorType::MutexAlreadyOpened => c"Tried to open the same mutex twice.",
+            ErrorType::ThreadOwnershipViolation => c"A thread different from that which created the resource tried to modify or destroy it.",
         }.as_ptr()
     }
 }

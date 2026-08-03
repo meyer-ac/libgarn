@@ -1,10 +1,9 @@
 pub struct Mutex {
-    name: String,
 }
 
 impl Mutex {
-    pub fn new(name: &str) -> Self {
-        Self {name: name.into()}
+    pub fn new() -> Self {
+        Self {}
     }
 
     pub fn lock(&self) {
