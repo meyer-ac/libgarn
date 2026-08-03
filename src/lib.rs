@@ -1,14 +1,17 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+mod interface;
+
+cfg_if::cfg_if! {
+    if #[cfg(target_os="linux")] {
+        mod linux;
+        pub use linux::environment;
+        pub use linux::mutex;
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+
     }
 }

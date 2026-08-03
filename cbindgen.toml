@@ -1,0 +1,7 @@
+language = "C"
+
+include_guard = "LIBGARN_H"
+style = "type"
+
+[export]
+prefix = "Garn"
