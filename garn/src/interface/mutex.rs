@@ -7,11 +7,6 @@ use std::mem::MaybeUninit;
 pub struct Mutex {}
 
 #[unsafe(no_mangle)]
-pub extern "C" fn garn_mutex_new() -> *mut MaybeUninit<Mutex> {
-    Box::into_raw(Box::new(MaybeUninit::uninit()))
-}
-
-#[unsafe(no_mangle)]
 #[ffi_error_propagation]
 pub unsafe extern "C" fn garn_mutex_lock(mutex: *const Mutex) -> Error {
     let Some(mutex) = (unsafe { mutex.as_ref() }) else {
