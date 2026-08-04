@@ -28,7 +28,7 @@ macro_rules! ffi_no_error {
 pub use {ffi_error, ffi_no_error};
 
 pub fn raise_unrecoverable_error(message: &str) -> ! {
-    eprintln!("garn: FATAL! {}", message);
+    eprintln!("garn: FATAL! {message}");
     std::process::abort();
 }
 
@@ -43,13 +43,13 @@ pub enum ErrorType {
 }
 
 impl ErrorType {
-    fn get_c_error_message(self) -> *const c_char {
+    const fn get_c_error_message(self) -> *const c_char {
         match self {
-            ErrorType::NoError => c"No error occurred.",
-            ErrorType::NonNullReferenceViolation => c"A null-reference was provided to a garn-function expecting a non-null-reference.",
-            ErrorType::InvalidString => c"An invalid UTF8-string was provided to a garn-function.",
-            ErrorType::MutexAlreadyOpened => c"Tried to open the same mutex twice.",
-            ErrorType::ThreadOwnershipViolation => c"A thread different from that which created the resource tried to modify or destroy it.",
+            Self::NoError => c"No error occurred.",
+            Self::NonNullReferenceViolation => c"A null-reference was provided to a garn-function expecting a non-null-reference.",
+            Self::InvalidString => c"An invalid UTF8-string was provided to a garn-function.",
+            Self::MutexAlreadyOpened => c"Tried to open the same mutex twice.",
+            Self::ThreadOwnershipViolation => c"A thread different from that which created the resource tried to modify or destroy it.",
         }.as_ptr()
     }
 }
@@ -57,17 +57,18 @@ impl ErrorType {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Error {
+    #[allow(clippy::struct_field_names)] // `type` is not a valid identifier
     error_type: ErrorType,
-    error_message: *const c_char,
+    message: *const c_char,
     fn_name: *const c_char,
     arg_name: *const c_char,
 }
 
 impl Error {
     pub fn new(error_type: ErrorType, fn_name: *const c_char) -> Self {
-        Error {
+        Self {
             error_type,
-            error_message: error_type.get_c_error_message(),
+            message: error_type.get_c_error_message(),
             fn_name,
             arg_name: std::ptr::null(),
         }
@@ -78,21 +79,21 @@ impl Error {
         fn_name: *const c_char,
         arg_name: *const c_char,
     ) -> Self {
-        Error {
+        Self {
             error_type,
-            error_message: error_type.get_c_error_message(),
+            message: error_type.get_c_error_message(),
             fn_name,
             arg_name,
         }
     }
 
-    unsafe fn get_error_message(&self) -> &str {
-        if self.error_message.is_null() {
+    unsafe fn get_message(&self) -> &str {
+        if self.message.is_null() {
             raise_unrecoverable_error(
                 "Error object is in an invalid state: error_message is null.",
             );
         }
-        unsafe { CStr::from_ptr(self.error_message) }
+        unsafe { CStr::from_ptr(self.message) }
             .to_str()
             .unwrap_or_else(|_| {
                 raise_unrecoverable_error(
@@ -142,7 +143,7 @@ pub extern "C" fn garn_error_get_code(error: Error) -> usize {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn garn_error_get_message(error: Error) -> *const c_char {
-    error.error_message
+    error.message
 }
 
 #[unsafe(no_mangle)]
@@ -157,9 +158,9 @@ pub extern "C" fn garn_error_get_argument(error: Error) -> *const c_char {
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn garn_error_print(error: Error) {
-    eprintln!("garn: {}", unsafe { error.get_error_message() });
+    eprintln!("garn: {}", unsafe { error.get_message() });
     eprintln!("      In function: {}", unsafe { error.get_fn_name() });
     if let Some(arg_name) = unsafe { error.get_arg_name() } {
-        eprintln!("      Responsible argument: {}", arg_name);
+        eprintln!("      Responsible argument: {arg_name}");
     }
 }

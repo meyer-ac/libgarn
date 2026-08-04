@@ -1,7 +1,6 @@
 use crate::interface::error_handling::{Error, ffi_error, ffi_no_error};
 use crate::mutex::Mutex;
 use garn_proc_macros::ffi_error_propagation;
-use std::mem::MaybeUninit;
 
 #[cfg(cbindgen)]
 pub struct Mutex {}

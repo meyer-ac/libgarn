@@ -1,6 +1,7 @@
 pub struct Mutex {}
 
 impl Mutex {
+    #[must_use]
     pub fn new() -> Self {
         Self {}
     }

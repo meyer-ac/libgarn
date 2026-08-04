@@ -79,7 +79,7 @@ pub unsafe extern "C" fn garn_environment_open_mutex(
 
     if mutex.is_null() {
         return ffi_error!(NonNullReferenceViolation, mutex);
-    };
+    }
 
     if name.is_null() {
         return ffi_error!(NonNullReferenceViolation, name);

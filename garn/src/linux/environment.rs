@@ -6,10 +6,13 @@ use std::thread::{self, ThreadId};
 pub struct Environment {
     owner_thread: ThreadId,
     name: String,
+    // Box<> is strictly required here to guarantee referential integrity of the mutexes
+    // across the FFI boundary.
     open_mutexes: HashMap<String, Box<Mutex>>,
 }
 
 impl Environment {
+    #[must_use]
     pub fn new(name: &str) -> Self {
         Self {
             owner_thread: thread::current().id(),
@@ -18,10 +21,12 @@ impl Environment {
         }
     }
 
+    #[must_use]
     pub fn get_owner_thread(&self) -> ThreadId {
         self.owner_thread
     }
 
+    #[must_use]
     pub fn open_mutex(&mut self, name: &str) -> Option<&Mutex> {
         match self.open_mutexes.entry(name.into()) {
             Entry::Occupied(_) => None,
