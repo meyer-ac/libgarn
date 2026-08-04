@@ -7,7 +7,11 @@ use proc_macro::TokenStream;
 use proc_macro2::Literal;
 use quote::quote;
 use std::ffi::CString;
-use syn::{parse_macro_input, FnArg, Ident, ItemFn, Pat, PatType};
+use syn::spanned::Spanned;
+use syn::{FnArg, Ident, ItemFn, Pat, PatType, parse_macro_input};
+
+const FN_NAME_IDENT: &str = "FFI_ERROR_PROPAGATION_FN_NAME";
+const ARG_IDENT_PREFIX: &str = "FFI_ERROR_PROPAGATION_ARG_";
 
 fn c_str_lit(s: &str) -> Literal {
     let cstring = CString::new(s).expect("identifier unexpectedly contained a NUL byte");
@@ -17,12 +21,19 @@ fn c_str_lit(s: &str) -> Literal {
 #[proc_macro_attribute]
 pub fn ffi_error_propagation(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(item as ItemFn);
-    let ItemFn { attrs, vis, sig, block, .. } = input_fn;
+    let ItemFn {
+        attrs,
+        vis,
+        sig,
+        block,
+        ..
+    } = input_fn;
 
     // const FN_NAME: *const c_char = c"the_function_name".as_ptr();
     let fn_name_lit = c_str_lit(&sig.ident.to_string());
+    let fn_name_ident = Ident::new(FN_NAME_IDENT, sig.span());
     let fn_const = quote! {
-        const FN_NAME: *const ::std::ffi::c_char = #fn_name_lit.as_ptr();
+        const #fn_name_ident: *const ::std::ffi::c_char = #fn_name_lit.as_ptr();
     };
 
     // const ARG_<NAME>: *const c_char = c"name".as_ptr(); for each param
@@ -34,7 +45,7 @@ pub fn ffi_error_propagation(_attr: TokenStream, item: TokenStream) -> TokenStre
                 Pat::Wild(_) => continue, // `_: T` has no name to emit
                 Pat::Ident(pat_ident) => {
                     let arg_name = pat_ident.ident.to_string();
-                    let const_name = format!("ARG_{}", arg_name.to_uppercase());
+                    let const_name = format!("{}{}", ARG_IDENT_PREFIX, arg_name.to_uppercase());
                     let const_ident = Ident::new(&const_name, pat_ident.ident.span());
                     let arg_lit = c_str_lit(&arg_name);
                     arg_consts.push(quote! {
@@ -63,7 +74,7 @@ pub fn ffi_error_propagation(_attr: TokenStream, item: TokenStream) -> TokenStre
             #(#stmts)*
         }
     }
-        .into()
+    .into()
 }
 
 #[proc_macro]
@@ -75,7 +86,13 @@ pub fn prefix_error_type(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn arg_name_const_identifier(input: TokenStream) -> TokenStream {
     let name = parse_macro_input!(input as Ident);
-    let upper = format!("ARG_{}", name.to_string().to_uppercase());
+    let upper = format!("{}{}", ARG_IDENT_PREFIX, name.to_string().to_uppercase());
     let new_ident = Ident::new(&upper, name.span());
     quote! { #new_ident }.into()
+}
+
+#[proc_macro]
+pub fn fn_name_const_identifier(_input: TokenStream) -> TokenStream {
+    let ident = Ident::new(FN_NAME_IDENT, proc_macro2::Span::call_site());
+    quote! { #ident }.into()
 }

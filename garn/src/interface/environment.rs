@@ -1,18 +1,21 @@
+use crate::environment::Environment;
+use crate::interface::error_handling::{Error, ffi_error, ffi_no_error};
+use crate::mutex::Mutex;
+use garn_proc_macros::ffi_error_propagation;
 use std::ffi::CStr;
 use std::mem::MaybeUninit;
 use std::os::raw::c_char;
 use std::thread;
-use garn_proc_macros::ffi_error_propagation;
-use crate::environment::Environment;
-use crate::interface::error_handling::{ffi_error, ffi_no_error, Error};
-use crate::mutex::Mutex;
 
 #[cfg(cbindgen)]
 pub struct Environment {}
 
 #[unsafe(no_mangle)]
 #[ffi_error_propagation]
-pub unsafe extern "C" fn garn_environment_init(env: *mut MaybeUninit<*mut Environment>, name: *const c_char) -> Error {
+pub unsafe extern "C" fn garn_environment_init(
+    env: *mut MaybeUninit<*mut Environment>,
+    name: *const c_char,
+) -> Error {
     if env.is_null() {
         return ffi_error!(NonNullReferenceViolation, env);
     }
@@ -21,7 +24,7 @@ pub unsafe extern "C" fn garn_environment_init(env: *mut MaybeUninit<*mut Enviro
         return ffi_error!(NonNullReferenceViolation, name);
     }
 
-    let Ok(name) = unsafe {CStr::from_ptr(name)}.to_str() else {
+    let Ok(name) = unsafe { CStr::from_ptr(name) }.to_str() else {
         return ffi_error!(InvalidString, name);
     };
 
@@ -39,7 +42,7 @@ pub unsafe extern "C" fn garn_environment_init(env: *mut MaybeUninit<*mut Enviro
 #[ffi_error_propagation]
 pub unsafe extern "C" fn garn_environment_destroy(env: *mut Environment) -> Error {
     {
-        let Some(env) = (unsafe {env.as_ref()}) else {
+        let Some(env) = (unsafe { env.as_ref() }) else {
             return ffi_error!(NonNullReferenceViolation, env);
         };
 
@@ -57,9 +60,13 @@ pub unsafe extern "C" fn garn_environment_destroy(env: *mut Environment) -> Erro
 
 #[unsafe(no_mangle)]
 #[ffi_error_propagation]
-pub unsafe extern "C" fn garn_environment_open_mutex(env: *mut Environment, mutex: *mut MaybeUninit<*const Mutex>, name: *const c_char) -> Error {
+pub unsafe extern "C" fn garn_environment_open_mutex(
+    env: *mut Environment,
+    mutex: *mut MaybeUninit<*const Mutex>,
+    name: *const c_char,
+) -> Error {
     {
-        let Some(env) = (unsafe {env.as_ref()}) else {
+        let Some(env) = (unsafe { env.as_ref() }) else {
             return ffi_error!(NonNullReferenceViolation, env);
         };
 
@@ -68,7 +75,7 @@ pub unsafe extern "C" fn garn_environment_open_mutex(env: *mut Environment, mute
         }
     }
 
-    let env = unsafe {env.as_mut_unchecked()};
+    let env = unsafe { env.as_mut_unchecked() };
 
     if mutex.is_null() {
         return ffi_error!(NonNullReferenceViolation, mutex);
@@ -78,7 +85,7 @@ pub unsafe extern "C" fn garn_environment_open_mutex(env: *mut Environment, mute
         return ffi_error!(NonNullReferenceViolation, name);
     }
 
-    let Ok(name) = unsafe {CStr::from_ptr(name)}.to_str() else {
+    let Ok(name) = unsafe { CStr::from_ptr(name) }.to_str() else {
         return ffi_error!(InvalidString, name);
     };
 

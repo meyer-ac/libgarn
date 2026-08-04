@@ -16,7 +16,5 @@ cfg_if::cfg_if! {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn it_works() {
-
-    }
+    fn it_works() {}
 }

@@ -1,13 +1,20 @@
-use std::ffi::{c_char, CStr};
+use std::ffi::{CStr, c_char};
 
 #[macro_export]
 macro_rules! ffi_error {
     ($error_type:ident) => {
-        Error::new(garn_proc_macros::prefix_error_type!($error_type), FN_NAME)
+        Error::new(
+            garn_proc_macros::prefix_error_type!($error_type),
+            garn_proc_macros::fn_name_const_identifier!(),
+        )
     };
 
     ($error_type:ident, $arg:ident) => {
-        Error::with_arg(garn_proc_macros::prefix_error_type!($error_type), FN_NAME, garn_proc_macros::arg_name_const_identifier!($arg))
+        Error::with_arg(
+            garn_proc_macros::prefix_error_type!($error_type),
+            garn_proc_macros::fn_name_const_identifier!(),
+            garn_proc_macros::arg_name_const_identifier!($arg),
+        )
     };
 }
 
@@ -62,41 +69,64 @@ impl Error {
             error_type,
             error_message: error_type.get_c_error_message(),
             fn_name,
-            arg_name: std::ptr::null()
+            arg_name: std::ptr::null(),
         }
     }
 
-    pub fn with_arg(error_type: ErrorType, fn_name: *const c_char, arg_name: *const c_char) -> Self {
+    pub fn with_arg(
+        error_type: ErrorType,
+        fn_name: *const c_char,
+        arg_name: *const c_char,
+    ) -> Self {
         Error {
             error_type,
             error_message: error_type.get_c_error_message(),
             fn_name,
-            arg_name
+            arg_name,
         }
     }
 
     unsafe fn get_error_message(&self) -> &str {
         if self.error_message.is_null() {
-            raise_unrecoverable_error("Error object is in an invalid state: error_message is null.");
+            raise_unrecoverable_error(
+                "Error object is in an invalid state: error_message is null.",
+            );
         }
-        unsafe {CStr::from_ptr(self.error_message)}.to_str()
-            .unwrap_or_else(|_| raise_unrecoverable_error("Error object is in an invalid state: error_message is not a valid string."))
+        unsafe { CStr::from_ptr(self.error_message) }
+            .to_str()
+            .unwrap_or_else(|_| {
+                raise_unrecoverable_error(
+                    "Error object is in an invalid state: error_message is not a valid string.",
+                )
+            })
     }
 
     unsafe fn get_fn_name(&self) -> &str {
         if self.fn_name.is_null() {
             raise_unrecoverable_error("Error object is in an invalid state: fn_name is null.");
         }
-        unsafe {CStr::from_ptr(self.fn_name)}.to_str()
-            .unwrap_or_else(|_| raise_unrecoverable_error("Error object is in an invalid state: fn_name is not a valid string."))
+        unsafe { CStr::from_ptr(self.fn_name) }
+            .to_str()
+            .unwrap_or_else(|_| {
+                raise_unrecoverable_error(
+                    "Error object is in an invalid state: fn_name is not a valid string.",
+                )
+            })
     }
 
     unsafe fn get_arg_name(&self) -> Option<&str> {
         if self.arg_name.is_null() {
-            return None
+            return None;
         }
-        Some(unsafe {CStr::from_ptr(self.arg_name)}.to_str()
-        .unwrap_or_else(|_| raise_unrecoverable_error("Error object is in an invalid state: arg_name is not a valid string.")))
+        Some(
+            unsafe { CStr::from_ptr(self.arg_name) }
+                .to_str()
+                .unwrap_or_else(|_| {
+                    raise_unrecoverable_error(
+                        "Error object is in an invalid state: arg_name is not a valid string.",
+                    )
+                }),
+        )
     }
 }
 
@@ -127,9 +157,9 @@ pub extern "C" fn garn_error_get_argument(error: Error) -> *const c_char {
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn garn_error_print(error: Error) {
-    eprintln!("garn: {}", unsafe {error.get_error_message()});
-    eprintln!("      In function: {}", unsafe {error.get_fn_name()});
-    if let Some(arg_name) = unsafe {error.get_arg_name()} {
+    eprintln!("garn: {}", unsafe { error.get_error_message() });
+    eprintln!("      In function: {}", unsafe { error.get_fn_name() });
+    if let Some(arg_name) = unsafe { error.get_arg_name() } {
         eprintln!("      Responsible argument: {}", arg_name);
     }
 }

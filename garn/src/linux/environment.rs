@@ -1,6 +1,6 @@
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
 use super::mutex::Mutex;
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::thread::{self, ThreadId};
 
 pub struct Environment {
