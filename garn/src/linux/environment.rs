@@ -26,9 +26,12 @@ impl PlatformEnvironment for Environment {
     }
 
     fn open_mutex(&mut self, name: &str) -> Option<&Mutex> {
+        /*
         match self.open_mutexes.entry(name.into()) {
             Entry::Occupied(_) => None,
             Entry::Vacant(e) => Some(&**e.insert(Box::new(Mutex::new()))),
         }
+         */
+        todo!();
     }
 }
