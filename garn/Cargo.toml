@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 cfg-if = "1.0.4"
 garn-proc-macros = { path = "../garn-proc-macros" }
+rustix = "1.1.4"
 
 [build-dependencies]
 cbindgen = "0.29.4"

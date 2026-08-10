@@ -1,4 +1,5 @@
 use super::mutex::Mutex;
+use crate::platform_traits::PlatformEnvironment;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::thread::{self, ThreadId};
@@ -11,9 +12,8 @@ pub struct Environment {
     open_mutexes: HashMap<String, Box<Mutex>>,
 }
 
-impl Environment {
-    #[must_use]
-    pub fn new(name: &str) -> Self {
+impl PlatformEnvironment for Environment {
+    fn new(name: &str) -> Self {
         Self {
             owner_thread: thread::current().id(),
             name: name.into(),
@@ -21,13 +21,11 @@ impl Environment {
         }
     }
 
-    #[must_use]
-    pub fn get_owner_thread(&self) -> ThreadId {
+    fn get_owner_thread(&self) -> ThreadId {
         self.owner_thread
     }
 
-    #[must_use]
-    pub fn open_mutex(&mut self, name: &str) -> Option<&Mutex> {
+    fn open_mutex(&mut self, name: &str) -> Option<&Mutex> {
         match self.open_mutexes.entry(name.into()) {
             Entry::Occupied(_) => None,
             Entry::Vacant(e) => Some(&**e.insert(Box::new(Mutex::new()))),

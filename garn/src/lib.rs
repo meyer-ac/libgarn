@@ -12,12 +12,13 @@ pub mod __macro_support {
 }
 
 mod interface;
+mod platform_traits;
 
 cfg_if::cfg_if! {
     if #[cfg(target_os="linux")] {
         mod linux;
-        pub use linux::environment;
-        pub use linux::mutex;
+        use linux::environment;
+        use linux::mutex;
     }
 }
 

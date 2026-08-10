@@ -145,6 +145,7 @@ dependencies = [
  "cbindgen",
  "cfg-if",
  "garn-proc-macros",
+ "rustix",
 ]
 
 [[package]]

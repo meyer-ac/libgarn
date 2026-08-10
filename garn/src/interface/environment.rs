@@ -1,6 +1,7 @@
 use crate::environment::Environment;
 use crate::interface::error_handling::{Error, ffi_error, ffi_no_error};
 use crate::mutex::Mutex;
+use crate::platform_traits::PlatformEnvironment;
 use garn_proc_macros::ffi_error_propagation;
 use std::ffi::CStr;
 use std::mem::MaybeUninit;
