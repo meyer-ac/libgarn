@@ -13,6 +13,7 @@ pub mod __macro_support {
 
 mod interface;
 mod platform_traits;
+mod util;
 
 cfg_if::cfg_if! {
     if #[cfg(target_os="linux")] {

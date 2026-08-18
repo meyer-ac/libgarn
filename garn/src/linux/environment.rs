@@ -253,10 +253,10 @@ impl PlatformEnvironment for Environment {
         // the garnd service is trusted to provide an object of the right type and a memory page
         // of the right size with trivial cleanup.
         // Cast is safe because of repr(transparent) on Mutex.
-        let mutex_ptr = std::ptr::from_ref::<PthreadMutex>(unsafe {
+        let mutex_ptr = unsafe {
             self.shm_consumer
                 .consume::<PthreadMutex>(name, shm_fd.unwrap(), page, offset)?
-        })
+        }
         .cast::<Mutex>();
         self.open_mutexes.insert(name.to_owned(), mutex_ptr);
         Ok(mutex_ptr)

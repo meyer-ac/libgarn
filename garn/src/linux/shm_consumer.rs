@@ -1,18 +1,15 @@
 use crate::interface::error_handling::PartialError;
+use crate::util::warn;
 use crate::{ffi_partial_error, ffi_partial_error_with_details};
 use garnshared::linux::traits::ShmSync;
 use hashed_type_def::HashedTypeMethods;
-use nix::sys::mman::{MapFlags, ProtFlags, mmap};
+use nix::sys::mman::{MapFlags, ProtFlags, mmap, munmap};
 use nix::unistd::{SysconfVar, sysconf};
 use std::collections::HashMap;
+use std::ffi::c_void;
 use std::num::NonZero;
 use std::os::fd::{AsFd, FromRawFd, OwnedFd, RawFd};
 use std::ptr::NonNull;
-
-struct ResourceMetadata {
-    page: usize,
-    offset: usize,
-}
 
 struct Page {
     fd: OwnedFd,
@@ -21,7 +18,6 @@ struct Page {
 
 pub struct ShmConsumer {
     page_size: usize,
-    resources: HashMap<String, ResourceMetadata>,
     pages: Vec<Option<Page>>,
 }
 
@@ -34,7 +30,6 @@ impl ShmConsumer {
 
         Ok(Self {
             page_size,
-            resources: HashMap::new(),
             pages: Vec::new(),
         })
     }
@@ -50,26 +45,20 @@ impl ShmConsumer {
         page_fd: RawFd,
         page: usize,
         offset: usize,
-    ) -> Result<&T, PartialError> {
-        if self.resources.contains_key(name) {
-            // SAFETY: guaranteed by function invariants
-            return Ok(unsafe { self.access_resource(page, offset) });
-        }
+    ) -> Result<*const T, PartialError> {
         if self.pages.len() <= page || self.pages[page].is_none() {
             // SAFETY: guaranteed by function invariants
             unsafe { self.load_page(page_fd, page) }?;
         }
-        self.resources
-            .insert(name.to_owned(), ResourceMetadata { page, offset });
         // SAFETY: guaranteed by function invariants
         Ok(unsafe { self.access_resource(page, offset) })
     }
 
     /// SAFETY:
     /// Accessed resource must be of type `T`.
-    unsafe fn access_resource<T: ShmSync>(&self, page: usize, offset: usize) -> &T {
+    unsafe fn access_resource<T: ShmSync>(&self, page: usize, offset: usize) -> *const T {
         unsafe {
-            &*self.pages[page]
+            &raw const *self.pages[page]
                 .as_ref()
                 .unwrap()
                 .mem
@@ -121,5 +110,19 @@ impl ShmConsumer {
         }
 
         Ok(())
+    }
+}
+
+impl Drop for ShmConsumer {
+    fn drop(&mut self) {
+        for page in self.pages.drain(..) {
+            // SAFETY: addr being a multiple of the page size is guaranteed by mmap, which
+            // aligns the memory to page boundaries
+            if let Some(Err(e)) =
+                page.map(|page| unsafe { munmap(page.mem.cast::<c_void>(), self.page_size) })
+            {
+                warn(format!("unmapping of shared memory failed: {e}").as_str());
+            }
+        }
     }
 }
