@@ -5,8 +5,11 @@ edition = "2024"
 
 [dependencies]
 cfg-if = "1.0.4"
+nix = { version = "0.31.3", features = ["user", "fs", "process", "mman", "socket", "event", "uio"] }
+hashed-type-def = "0.1.2"
 garn-proc-macros = { path = "../garn-proc-macros" }
 garnshared = { path = "../../garnshared" }
+uuid = { version = "1.24.1", features = ["v4"] }
 
 [build-dependencies]
 cbindgen = "0.29.4"

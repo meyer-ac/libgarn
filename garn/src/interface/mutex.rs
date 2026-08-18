@@ -1,4 +1,4 @@
-use crate::interface::error_handling::{Error, ffi_error, ffi_no_error};
+use crate::interface::error_handling::{Error, ffi_error_with_arg, ffi_no_error};
 use crate::mutex::Mutex;
 use garn_proc_macros::ffi_error_propagation;
 use garnshared::platform_traits::PlatformMutex;
@@ -8,9 +8,9 @@ pub struct Mutex {}
 
 #[unsafe(no_mangle)]
 #[ffi_error_propagation]
-pub unsafe extern "C" fn garn_mutex_lock(mutex: *const Mutex) -> Error {
+pub unsafe extern "C" fn garn_mutex_lock(mutex: *const Mutex) -> *mut Error {
     let Some(mutex) = (unsafe { mutex.as_ref() }) else {
-        return ffi_error!(NonNullReferenceViolation, mutex);
+        return ffi_error_with_arg!(NonNullReferenceViolation, mutex);
     };
 
     mutex.lock();
@@ -20,9 +20,9 @@ pub unsafe extern "C" fn garn_mutex_lock(mutex: *const Mutex) -> Error {
 
 #[unsafe(no_mangle)]
 #[ffi_error_propagation]
-pub unsafe extern "C" fn garn_mutex_unlock(mutex: *const Mutex) -> Error {
+pub unsafe extern "C" fn garn_mutex_unlock(mutex: *const Mutex) -> *mut Error {
     let Some(mutex) = (unsafe { mutex.as_ref() }) else {
-        return ffi_error!(NonNullReferenceViolation, mutex);
+        return ffi_error_with_arg!(NonNullReferenceViolation, mutex);
     };
 
     mutex.unlock();
@@ -32,9 +32,9 @@ pub unsafe extern "C" fn garn_mutex_unlock(mutex: *const Mutex) -> Error {
 
 #[unsafe(no_mangle)]
 #[ffi_error_propagation]
-pub unsafe extern "C" fn garn_mutex_try_lock(mutex: *const Mutex) -> Error {
+pub unsafe extern "C" fn garn_mutex_try_lock(mutex: *const Mutex) -> *mut Error {
     let Some(mutex) = (unsafe { mutex.as_ref() }) else {
-        return ffi_error!(NonNullReferenceViolation, mutex);
+        return ffi_error_with_arg!(NonNullReferenceViolation, mutex);
     };
 
     mutex.try_lock();
