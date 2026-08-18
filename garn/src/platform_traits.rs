@@ -1,6 +1,4 @@
-use crate::interface::error_handling::{Error, PartialError};
-use crate::linux::mutex::Mutex;
-use garnshared::platform_traits::PlatformMutex;
+use crate::interface::error_handling::PartialError;
 use std::thread::ThreadId;
 
 pub trait PlatformEnvironment {
@@ -9,6 +7,11 @@ pub trait PlatformEnvironment {
     #[must_use]
     fn get_owner_thread(&self) -> ThreadId;
 
-    #[must_use]
     fn open_mutex(&mut self, name: &str) -> Result<*const impl PlatformMutex, PartialError>;
+}
+
+pub trait PlatformMutex {
+    fn lock(&self) -> Result<(), PartialError>;
+    fn unlock(&self) -> Result<(), PartialError>;
+    fn try_lock(&self) -> Result<(), PartialError>;
 }

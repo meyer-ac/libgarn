@@ -97,6 +97,10 @@ pub enum ErrorType {
     NameTooLong = 6,
     SharedMemoryError = 7,
     GetPageSizeFailed = 8,
+    MutexNestedLock = 9,
+    MutexUnauthorizedUnlock = 10,
+    MutexTrylockFailed = 11,
+    MutexError = 12,
 }
 
 impl ErrorType {
@@ -110,6 +114,10 @@ impl ErrorType {
             Self::NameTooLong => c"The provided name was too long.",
             Self::SharedMemoryError => c"Failed to map the service's shared memory into the local address space.",
             Self::GetPageSizeFailed => c"Could not determine the system's page size.",
+            Self::MutexNestedLock => c"Tried to lock an already locked mutex from the same thread.",
+            Self::MutexUnauthorizedUnlock => c"Tried to unlock a mutex which isn't owned by this thread.",
+            Self::MutexTrylockFailed => c"Tried to lock an already locked mutex in a non-blocking manner.",
+            Self::MutexError => c"An internal mutex error occurred.",
         }.as_ptr()
     }
 }

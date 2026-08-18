@@ -1,7 +1,8 @@
+use crate::ffi_error_from_partial;
 use crate::interface::error_handling::{Error, ffi_error_with_arg, ffi_no_error};
 use crate::mutex::Mutex;
+use crate::platform_traits::PlatformMutex;
 use garn_proc_macros::ffi_error_propagation;
-use garnshared::platform_traits::PlatformMutex;
 
 #[cfg(cbindgen)]
 pub struct Mutex {}
@@ -13,7 +14,9 @@ pub unsafe extern "C" fn garn_mutex_lock(mutex: *const Mutex) -> *mut Error {
         return ffi_error_with_arg!(NonNullReferenceViolation, mutex);
     };
 
-    mutex.lock();
+    if let Err(e) = mutex.lock() {
+        return ffi_error_from_partial!(e);
+    }
 
     ffi_no_error!()
 }
@@ -25,7 +28,9 @@ pub unsafe extern "C" fn garn_mutex_unlock(mutex: *const Mutex) -> *mut Error {
         return ffi_error_with_arg!(NonNullReferenceViolation, mutex);
     };
 
-    mutex.unlock();
+    if let Err(e) = mutex.unlock() {
+        return ffi_error_from_partial!(e);
+    }
 
     ffi_no_error!()
 }
@@ -37,7 +42,9 @@ pub unsafe extern "C" fn garn_mutex_try_lock(mutex: *const Mutex) -> *mut Error 
         return ffi_error_with_arg!(NonNullReferenceViolation, mutex);
     };
 
-    mutex.try_lock();
+    if let Err(e) = mutex.try_lock() {
+        return ffi_error_from_partial!(e);
+    }
 
     ffi_no_error!()
 }

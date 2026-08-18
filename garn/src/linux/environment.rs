@@ -1,5 +1,6 @@
 use crate::ffi_partial_error_with_details;
 use crate::interface::error_handling::PartialError;
+use crate::linux::mutex::Mutex;
 use crate::linux::shm_consumer::ShmConsumer;
 use crate::platform_traits::PlatformEnvironment;
 use garnshared::constants::{
@@ -23,7 +24,7 @@ use std::thread::{self, ThreadId};
 pub struct Environment {
     owner_thread: ThreadId,
     name: String,
-    open_mutexes: HashMap<String, *const PthreadMutex>,
+    open_mutexes: HashMap<String, *const Mutex>,
     socket: OwnedFd,
     shm_consumer: ShmConsumer,
 }
@@ -139,7 +140,7 @@ impl PlatformEnvironment for Environment {
         self.owner_thread
     }
 
-    fn open_mutex(&mut self, name: &str) -> Result<*const PthreadMutex, PartialError> {
+    fn open_mutex(&mut self, name: &str) -> Result<*const Mutex, PartialError> {
         if let Some(&mutex) = self.open_mutexes.get(name) {
             return Ok(mutex);
         }
@@ -251,10 +252,12 @@ impl PlatformEnvironment for Environment {
         // (safe to assume ownership if not already consumed),
         // the garnd service is trusted to provide an object of the right type and a memory page
         // of the right size with trivial cleanup.
+        // Cast is safe because of repr(transparent) on Mutex.
         let mutex_ptr = std::ptr::from_ref::<PthreadMutex>(unsafe {
             self.shm_consumer
                 .consume::<PthreadMutex>(name, shm_fd.unwrap(), page, offset)?
-        });
+        })
+        .cast::<Mutex>();
         self.open_mutexes.insert(name.to_owned(), mutex_ptr);
         Ok(mutex_ptr)
     }
