@@ -11,7 +11,7 @@ pub struct Mutex(PthreadMutex);
 
 impl PlatformMutex for Mutex {
     fn lock(&self) -> Result<(), PartialError> {
-        match unsafe { pthread_mutex_lock(self.0.mutex.get() as *mut pthread_mutex_t) } {
+        match unsafe { pthread_mutex_lock(self.0.mutex.get().cast::<pthread_mutex_t>()) } {
             0 => Ok(()),
             libc::EDEADLK => Err(ffi_partial_error!(MutexNestedLock)),
             _ => Err(ffi_partial_error_with_details!(
@@ -22,7 +22,7 @@ impl PlatformMutex for Mutex {
     }
 
     fn unlock(&self) -> Result<(), PartialError> {
-        match unsafe { pthread_mutex_unlock(self.0.mutex.get() as *mut pthread_mutex_t) } {
+        match unsafe { pthread_mutex_unlock(self.0.mutex.get().cast::<pthread_mutex_t>()) } {
             0 => Ok(()),
             libc::EPERM => Err(ffi_partial_error!(MutexUnauthorizedUnlock)),
             _ => Err(ffi_partial_error_with_details!(
@@ -33,7 +33,7 @@ impl PlatformMutex for Mutex {
     }
 
     fn try_lock(&self) -> Result<(), PartialError> {
-        match unsafe { pthread_mutex_trylock(self.0.mutex.get() as *mut pthread_mutex_t) } {
+        match unsafe { pthread_mutex_trylock(self.0.mutex.get().cast::<pthread_mutex_t>()) } {
             0 => Ok(()),
             libc::EBUSY => Err(ffi_partial_error!(MutexTrylockFailed)),
             _ => Err(ffi_partial_error_with_details!(

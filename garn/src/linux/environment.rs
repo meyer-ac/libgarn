@@ -3,9 +3,7 @@ use crate::interface::error_handling::PartialError;
 use crate::linux::mutex::Mutex;
 use crate::linux::shm_consumer::ShmConsumer;
 use crate::platform_traits::PlatformEnvironment;
-use garnshared::constants::{
-    ENVIRONMENT_REQUEST_SIZE, ENVIRONMENT_RESPONSE_SIZE, MAX_NAME_LEN, WELCOME_RESPONSE_SIZE,
-};
+use garnshared::constants::{ENVIRONMENT_RESPONSE_SIZE, MAX_NAME_LEN, WELCOME_RESPONSE_SIZE};
 use garnshared::environment_protocol::{EnvironmentRequest, EnvironmentResponse};
 use garnshared::error_types::SerializeError;
 use garnshared::linux::pthread_mutex::PthreadMutex;
@@ -23,13 +21,13 @@ use std::thread::{self, ThreadId};
 
 pub struct Environment {
     owner_thread: ThreadId,
-    name: String,
     open_mutexes: HashMap<String, *const Mutex>,
     socket: OwnedFd,
     shm_consumer: ShmConsumer,
 }
 
 impl PlatformEnvironment for Environment {
+    #[allow(refining_impl_trait)]
     fn new(name: &str) -> Result<Self, PartialError> {
         let shm_consumer = ShmConsumer::new()?;
 
@@ -129,7 +127,6 @@ impl PlatformEnvironment for Environment {
 
         Ok(Self {
             owner_thread: thread::current().id(),
-            name: name.into(),
             open_mutexes: HashMap::new(),
             socket,
             shm_consumer,
@@ -140,63 +137,46 @@ impl PlatformEnvironment for Environment {
         self.owner_thread
     }
 
+    #[allow(refining_impl_trait)]
     fn open_mutex(&mut self, name: &str) -> Result<*const Mutex, PartialError> {
         if let Some(&mutex) = self.open_mutexes.get(name) {
             return Ok(mutex);
         }
 
-        let request = match EnvironmentRequest::OpenMutex(name.to_owned()).serialize() {
-            Ok(res) => res,
-            Err(SerializeError::NameTooLongError) => {
-                return Err(ffi_partial_error_with_details!(
+        let request = EnvironmentRequest::OpenMutex(name.to_owned())
+            .serialize()
+            .map_err(|e| match e {
+                SerializeError::NameTooLongError => ffi_partial_error_with_details!(
                     NameTooLong,
                     format!(
                         "The maximum length of a mutex name is {} bytes.",
                         MAX_NAME_LEN
                     )
-                ));
-            }
-        };
+                ),
+            })?;
 
-        if let Err(e) = send(
+        send(
             self.socket.as_raw_fd(),
             request.as_bytes(),
             MsgFlags::empty(),
-        ) {
-            return Err(ffi_partial_error_with_details!(
-                ServiceCommunicationFailed,
-                e.to_string()
-            ));
-        }
+        )
+        .map_err(|e| ffi_partial_error_with_details!(ServiceCommunicationFailed, e.to_string()))?;
 
         let mut buffer: [u8; ENVIRONMENT_RESPONSE_SIZE] = [0; ENVIRONMENT_RESPONSE_SIZE];
         let mut iov = [IoSliceMut::new(&mut buffer)];
         let mut cmsg_buffer = cmsg_space!([RawFd; 1]);
 
-        let msgs = match recvmsg::<()>(
+        let msgs = recvmsg::<()>(
             self.socket.as_raw_fd(),
             &mut iov,
             Some(&mut cmsg_buffer),
             MsgFlags::empty(),
-        ) {
-            Ok(res) => res,
-            Err(e) => {
-                return Err(ffi_partial_error_with_details!(
-                    ServiceCommunicationFailed,
-                    e.to_string()
-                ));
-            }
-        };
+        )
+        .map_err(|e| ffi_partial_error_with_details!(ServiceCommunicationFailed, e.to_string()))?;
 
-        let cmsgs = match msgs.cmsgs() {
-            Ok(res) => res,
-            Err(e) => {
-                return Err(ffi_partial_error_with_details!(
-                    ServiceCommunicationFailed,
-                    e.to_string()
-                ));
-            }
-        };
+        let cmsgs = msgs.cmsgs().map_err(|e| {
+            ffi_partial_error_with_details!(ServiceCommunicationFailed, e.to_string())
+        })?;
 
         let mut shm_fd = None;
         for cmsg in cmsgs {
@@ -215,22 +195,16 @@ impl PlatformEnvironment for Environment {
             ));
         }
 
-        let response_str = match String::from_utf8(buffer.to_vec()) {
-            Ok(res) => res,
-            Err(e) => {
-                return Err(ffi_partial_error_with_details!(
-                    ServiceCommunicationFailed,
-                    e.to_string()
-                ));
-            }
-        };
+        let response_str = String::from_utf8(buffer.to_vec()).map_err(|e| {
+            ffi_partial_error_with_details!(ServiceCommunicationFailed, e.to_string())
+        })?;
 
-        let Some(response) = EnvironmentResponse::deserialize(&response_str) else {
-            return Err(ffi_partial_error_with_details!(
+        let response = EnvironmentResponse::deserialize(&response_str).ok_or(
+            ffi_partial_error_with_details!(
                 ServiceCommunicationFailed,
                 String::from("Deserialization of the service response failed.")
-            ));
-        };
+            ),
+        )?;
 
         let (page, offset) = match response {
             EnvironmentResponse::MalformedRequest => {
@@ -255,7 +229,7 @@ impl PlatformEnvironment for Environment {
         // Cast is safe because of repr(transparent) on Mutex.
         let mutex_ptr = unsafe {
             self.shm_consumer
-                .consume::<PthreadMutex>(name, shm_fd.unwrap(), page, offset)?
+                .consume::<PthreadMutex>(shm_fd.unwrap(), page, offset)?
         }
         .cast::<Mutex>();
         self.open_mutexes.insert(name.to_owned(), mutex_ptr);

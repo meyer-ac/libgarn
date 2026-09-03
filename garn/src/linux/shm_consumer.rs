@@ -1,18 +1,16 @@
 use crate::interface::error_handling::PartialError;
 use crate::util::warn;
 use crate::{ffi_partial_error, ffi_partial_error_with_details};
-use garnshared::linux::traits::ShmSync;
-use hashed_type_def::HashedTypeMethods;
+use garnshared::linux::traits::ShmCompatible;
 use nix::sys::mman::{MapFlags, ProtFlags, mmap, munmap};
 use nix::unistd::{SysconfVar, sysconf};
-use std::collections::HashMap;
 use std::ffi::c_void;
 use std::num::NonZero;
 use std::os::fd::{AsFd, FromRawFd, OwnedFd, RawFd};
 use std::ptr::NonNull;
 
 struct Page {
-    fd: OwnedFd,
+    _fd: OwnedFd,
     mem: NonNull<u8>,
 }
 
@@ -39,9 +37,8 @@ impl ShmConsumer {
     /// * The resource pointed to by `fd` must be either already consumed by this object or suitable for assuming ownership.
     /// * The resource pointed to by `fd` must not require any cleanup other than close.
     /// * The consumed resource must be of type `T`
-    pub unsafe fn consume<T: ShmSync>(
+    pub unsafe fn consume<T: ShmCompatible>(
         &mut self,
-        name: &str,
         page_fd: RawFd,
         page: usize,
         offset: usize,
@@ -55,10 +52,14 @@ impl ShmConsumer {
     }
 
     /// SAFETY:
-    /// Accessed resource must be of type `T`.
-    unsafe fn access_resource<T: ShmSync>(&self, page: usize, offset: usize) -> *const T {
+    /// Accessed resource must exist and be of type `T`.
+    unsafe fn access_resource<T: ShmCompatible>(&self, page: usize, offset: usize) -> *const T {
+        // SAFETY: add: offset fits into isize, because the upper half of addresses is reserved for kernel space and
+        // the whole range between the original address and the offset address belongs to the same
+        // allocation (anonymous file). The address does also not wrap around the address space,
+        // because the whole file is guaranteed to be in the lower half of the address space.
         unsafe {
-            &raw const *self.pages[page]
+            self.pages[page]
                 .as_ref()
                 .unwrap()
                 .mem
@@ -97,7 +98,7 @@ impl ShmConsumer {
         } {
             Ok(res) => {
                 self.pages[dest] = Some(Page {
-                    fd: owned_fd,
+                    _fd: owned_fd,
                     mem: res.cast::<u8>(),
                 });
             }

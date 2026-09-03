@@ -76,6 +76,8 @@ macro_rules! ffi_no_error {
     };
 }
 
+#[allow(unused_imports)]
+// This is not really an import but a macro export, and we really want to make all of these macros available
 pub use {
     ffi_error, ffi_error_from_partial, ffi_error_from_partial_with_arg, ffi_error_with_arg,
     ffi_no_error, ffi_partial_error_with_details,
@@ -153,6 +155,7 @@ pub struct Error {
 }
 
 impl Error {
+    #[allow(dead_code)] // Not used now, might be in the future
     pub fn new(error_type: ErrorType, fn_name: *const c_char) -> Self {
         Self {
             error_type,
@@ -194,6 +197,7 @@ impl Error {
         }
     }
 
+    #[allow(dead_code)] // Not used now, might be in the future
     pub fn from_partial_with_arg(
         partial_error: PartialError,
         fn_name: *const c_char,
