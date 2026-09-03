@@ -16,7 +16,7 @@ use nix::sys::socket::{
 };
 use std::collections::HashMap;
 use std::io::IoSliceMut;
-use std::os::fd::{AsRawFd, OwnedFd, RawFd};
+use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::thread::{self, ThreadId};
 
 pub struct Environment {
@@ -183,7 +183,8 @@ impl PlatformEnvironment for Environment {
             if let ControlMessageOwned::ScmRights(fds) = cmsg
                 && let Some(&fd) = fds.first()
             {
-                shm_fd = Some(fd);
+                // Safety: fd was deliberately passed to us via the socket
+                shm_fd = Some(unsafe { OwnedFd::from_raw_fd(fd) });
                 break;
             }
         }

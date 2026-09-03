@@ -1,6 +1,19 @@
 use std::ffi::{CStr, CString, c_char};
 
 #[macro_export]
+macro_rules! handle_panics {
+    ($expr:expr) => {
+        ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| $expr)).unwrap_or_else(|e| {
+            eprintln!(
+                "{}",
+                ::garnshared::util::try_extract_error_message(e.as_ref())
+            );
+            ::std::process::abort();
+        })
+    };
+}
+
+#[macro_export]
 macro_rules! ffi_partial_error {
     ($error_type:ident) => {
         $crate::interface::error_handling::PartialError::new(garn_proc_macros::prefix_error_type!(

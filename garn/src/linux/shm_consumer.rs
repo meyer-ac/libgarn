@@ -3,10 +3,11 @@ use crate::util::warn;
 use crate::{ffi_partial_error, ffi_partial_error_with_details};
 use garnshared::linux::traits::ShmCompatible;
 use nix::sys::mman::{MapFlags, ProtFlags, mmap, munmap};
+use nix::sys::stat::fstat;
 use nix::unistd::{SysconfVar, sysconf};
 use std::ffi::c_void;
 use std::num::NonZero;
-use std::os::fd::{AsFd, FromRawFd, OwnedFd, RawFd};
+use std::os::fd::{AsFd, OwnedFd};
 use std::ptr::NonNull;
 
 struct Page {
@@ -39,13 +40,12 @@ impl ShmConsumer {
     /// * The consumed resource must be of type `T`
     pub unsafe fn consume<T: ShmCompatible>(
         &mut self,
-        page_fd: RawFd,
+        page_fd: OwnedFd,
         page: usize,
         offset: usize,
     ) -> Result<*const T, PartialError> {
         if self.pages.len() <= page || self.pages[page].is_none() {
-            // SAFETY: guaranteed by function invariants
-            unsafe { self.load_page(page_fd, page) }?;
+            self.load_page(page_fd, page)?;
         }
         // SAFETY: guaranteed by function invariants
         Ok(unsafe { self.access_resource(page, offset) })
@@ -69,19 +69,24 @@ impl ShmConsumer {
         }
     }
 
-    /// # SAFETY
-    /// * The resource pointed to by `fd` must be open and the size of a memory page.
-    /// * The resource pointed to by `fd` must be suitable for assuming ownership.
-    /// * The resource pointed to by `fd` must not require any cleanup other than close.
-    unsafe fn load_page(&mut self, fd: RawFd, dest: usize) -> Result<(), PartialError> {
+    fn load_page(&mut self, fd: OwnedFd, dest: usize) -> Result<(), PartialError> {
         if self.pages.len() <= dest {
             self.pages.reserve(dest - self.pages.len() + 1);
             for _ in self.pages.len()..=dest {
                 self.pages.push(None);
             }
         }
-        // SAFETY: guaranteed by function invariants
-        let owned_fd = unsafe { OwnedFd::from_raw_fd(fd) };
+
+        let stats = fstat(fd.as_fd())
+            .map_err(|e| ffi_partial_error_with_details!(SharedMemoryError, e.to_string()))?;
+        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+        if stats.st_size as usize != self.page_size {
+            return Err(ffi_partial_error_with_details!(
+                SharedMemoryError,
+                "Size of received page file does not match the system's page size".to_owned()
+            ));
+        }
+
         // SAFETY: length is guaranteed to be non-zero in Self::new(),
         // prot and flags are only passed valid flags,
         // offset is trivially a multiple of the system's page size and
@@ -92,13 +97,13 @@ impl ShmConsumer {
                 NonZero::new(self.page_size).unwrap(),
                 ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
                 MapFlags::MAP_SHARED,
-                owned_fd.as_fd(),
+                fd.as_fd(),
                 0,
             )
         } {
             Ok(res) => {
                 self.pages[dest] = Some(Page {
-                    _fd: owned_fd,
+                    _fd: fd,
                     mem: res.cast::<u8>(),
                 });
             }
