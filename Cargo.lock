@@ -188,9 +188,7 @@ dependencies = [
  "cfg-if",
  "garn-proc-macros",
  "garnshared",
- "hashed-type-def",
  "nix",
- "uuid",
 ]
 
 [[package]]
