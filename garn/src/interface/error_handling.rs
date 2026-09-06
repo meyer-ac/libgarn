@@ -116,6 +116,8 @@ pub enum ErrorType {
     MutexUnauthorizedUnlock = 10,
     MutexTrylockFailed = 11,
     MutexError = 12,
+    ShmAccessOutOfBounds = 13,
+    ShmMisalignedAccess = 14,
 }
 
 impl ErrorType {
@@ -133,6 +135,8 @@ impl ErrorType {
             Self::MutexUnauthorizedUnlock => c"Tried to unlock a mutex which isn't owned by this thread.",
             Self::MutexTrylockFailed => c"Tried to lock an already locked mutex in a non-blocking manner.",
             Self::MutexError => c"An internal mutex error occurred.",
+            Self::ShmAccessOutOfBounds => c"Tried to access a shared resource outside of the page bounds.",
+            Self::ShmMisalignedAccess => c"Tried to access a misaligned shared resource.",
         }.as_ptr()
     }
 }

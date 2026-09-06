@@ -5,6 +5,8 @@ use garnshared::linux::traits::ShmCompatible;
 use nix::sys::mman::{MapFlags, ProtFlags, mmap, munmap};
 use nix::sys::stat::fstat;
 use nix::unistd::{SysconfVar, sysconf};
+use std::collections::HashMap;
+use std::collections::hash_map::{Entry, VacantEntry};
 use std::ffi::c_void;
 use std::num::NonZero;
 use std::os::fd::{AsFd, OwnedFd};
@@ -17,7 +19,7 @@ struct Page {
 
 pub struct ShmConsumer {
     page_size: usize,
-    pages: Vec<Option<Page>>,
+    pages: HashMap<usize, Page>,
 }
 
 impl ShmConsumer {
@@ -29,7 +31,7 @@ impl ShmConsumer {
 
         Ok(Self {
             page_size,
-            pages: Vec::new(),
+            pages: HashMap::new(),
         })
     }
 
@@ -44,43 +46,50 @@ impl ShmConsumer {
         page: usize,
         offset: usize,
     ) -> Result<*const T, PartialError> {
-        if self.pages.len() <= page || self.pages[page].is_none() {
-            self.load_page(page_fd, page)?;
+        if let Entry::Vacant(entry) = self.pages.entry(page) {
+            Self::load_page(self.page_size, page_fd, entry)?;
         }
         // SAFETY: guaranteed by function invariants
-        Ok(unsafe { self.access_resource(page, offset) })
+        Ok(unsafe { self.access_resource(page, offset)? })
     }
 
     /// SAFETY:
     /// Accessed resource must exist and be of type `T`.
-    unsafe fn access_resource<T: ShmCompatible>(&self, page: usize, offset: usize) -> *const T {
+    unsafe fn access_resource<T: ShmCompatible>(
+        &self,
+        page: usize,
+        offset: usize,
+    ) -> Result<*const T, PartialError> {
+        if offset + size_of::<T>() > self.page_size {
+            return Err(ffi_partial_error!(ShmAccessOutOfBounds));
+        }
+        if !offset.is_multiple_of(align_of::<T>()) {
+            return Err(ffi_partial_error!(ShmMisalignedAccess));
+        }
         // SAFETY: add: offset fits into isize, because the upper half of addresses is reserved for kernel space and
         // the whole range between the original address and the offset address belongs to the same
         // allocation (anonymous file). The address does also not wrap around the address space,
         // because the whole file is guaranteed to be in the lower half of the address space.
-        unsafe {
-            self.pages[page]
-                .as_ref()
+        Ok(unsafe {
+            self.pages
+                .get(&page)
                 .unwrap()
                 .mem
                 .as_ptr()
                 .add(offset)
                 .cast::<T>()
-        }
+        })
     }
 
-    fn load_page(&mut self, fd: OwnedFd, dest: usize) -> Result<(), PartialError> {
-        if self.pages.len() <= dest {
-            self.pages.reserve(dest - self.pages.len() + 1);
-            for _ in self.pages.len()..=dest {
-                self.pages.push(None);
-            }
-        }
-
+    fn load_page(
+        page_size: usize,
+        fd: OwnedFd,
+        dest: VacantEntry<usize, Page>,
+    ) -> Result<(), PartialError> {
         let stats = fstat(fd.as_fd())
             .map_err(|e| ffi_partial_error_with_details!(SharedMemoryError, e.to_string()))?;
         #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-        if stats.st_size as usize != self.page_size {
+        if stats.st_size as usize != page_size {
             return Err(ffi_partial_error_with_details!(
                 SharedMemoryError,
                 "Size of received page file does not match the system's page size".to_owned()
@@ -94,7 +103,7 @@ impl ShmConsumer {
         match unsafe {
             mmap(
                 None,
-                NonZero::new(self.page_size).unwrap(),
+                NonZero::new(page_size).unwrap(),
                 ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
                 MapFlags::MAP_SHARED,
                 fd.as_fd(),
@@ -102,7 +111,7 @@ impl ShmConsumer {
             )
         } {
             Ok(res) => {
-                self.pages[dest] = Some(Page {
+                dest.insert(Page {
                     _fd: fd,
                     mem: res.cast::<u8>(),
                 });
@@ -121,12 +130,10 @@ impl ShmConsumer {
 
 impl Drop for ShmConsumer {
     fn drop(&mut self) {
-        for page in self.pages.drain(..) {
+        for (_, page) in self.pages.drain() {
             // SAFETY: addr being a multiple of the page size is guaranteed by mmap, which
             // aligns the memory to page boundaries
-            if let Some(Err(e)) =
-                page.map(|page| unsafe { munmap(page.mem.cast::<c_void>(), self.page_size) })
-            {
+            if let Err(e) = unsafe { munmap(page.mem.cast::<c_void>(), self.page_size) } {
                 warn(format!("unmapping of shared memory failed: {e}").as_str());
             }
         }

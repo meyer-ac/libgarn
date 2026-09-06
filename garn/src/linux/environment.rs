@@ -189,18 +189,11 @@ impl PlatformEnvironment for Environment {
             }
         }
 
-        if shm_fd.is_none() {
-            return Err(ffi_partial_error_with_details!(
-                ServiceCommunicationFailed,
-                String::from("The garnd service did not provide a shared memory file descriptor.")
-            ));
-        }
-
-        let response_str = String::from_utf8(buffer.to_vec()).map_err(|e| {
+        let response_str = str::from_utf8(&buffer).map_err(|e| {
             ffi_partial_error_with_details!(ServiceCommunicationFailed, e.to_string())
         })?;
 
-        let response = EnvironmentResponse::deserialize(&response_str).ok_or(
+        let response = EnvironmentResponse::deserialize(response_str).ok_or(
             ffi_partial_error_with_details!(
                 ServiceCommunicationFailed,
                 String::from("Deserialization of the service response failed.")
@@ -222,6 +215,13 @@ impl PlatformEnvironment for Environment {
             }
             EnvironmentResponse::OpenMutexOk(page, offset) => (page, offset),
         };
+
+        if shm_fd.is_none() {
+            return Err(ffi_partial_error_with_details!(
+                ServiceCommunicationFailed,
+                String::from("The garnd service did not provide a shared memory file descriptor.")
+            ));
+        }
 
         // Safety: shm_fd was just obtained from the socket (is open) and no one else will use it
         // (safe to assume ownership if not already consumed),
