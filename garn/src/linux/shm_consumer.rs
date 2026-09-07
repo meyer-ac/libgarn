@@ -114,15 +114,6 @@ impl ShmConsumer {
             )
         } {
             Ok(res) => {
-                // SAFETY: `res` is valid and page-aligned
-                if let Err(e) = unsafe {
-                    mprotect(res, page_size, ProtFlags::PROT_READ | ProtFlags::PROT_WRITE)
-                } {
-                    return Err(ffi_partial_error_with_details!(
-                        SharedMemoryError,
-                        e.to_string()
-                    ));
-                }
                 dest.insert(Page {
                     _fd: fd,
                     mem: res.cast::<u8>(),
