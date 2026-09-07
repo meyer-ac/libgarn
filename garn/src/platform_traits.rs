@@ -4,6 +4,8 @@ use std::thread::ThreadId;
 pub trait PlatformEnvironment {
     fn new(name: &str) -> Result<impl PlatformEnvironment, PartialError>;
 
+    fn check_alive(&self);
+
     #[must_use]
     fn get_owner_thread(&self) -> ThreadId;
 

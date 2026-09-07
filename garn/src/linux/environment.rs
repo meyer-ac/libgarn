@@ -136,14 +136,16 @@ impl PlatformEnvironment for Environment {
         })
     }
 
+    fn check_alive(&self) {
+        self.alive_marker.check();
+    }
+
     fn get_owner_thread(&self) -> ThreadId {
         self.owner_thread
     }
 
     #[allow(refining_impl_trait)]
     fn open_mutex(&mut self, name: &str) -> Result<*const Mutex, PartialError> {
-        self.alive_marker.check();
-
         if let Some(&mutex) = self.open_mutexes.get(name) {
             return Ok(mutex);
         }
@@ -240,11 +242,5 @@ impl PlatformEnvironment for Environment {
         .cast::<Mutex>();
         self.open_mutexes.insert(name.to_owned(), mutex_ptr);
         Ok(mutex_ptr)
-    }
-}
-
-impl Drop for Environment {
-    fn drop(&mut self) {
-        self.alive_marker.check();
     }
 }

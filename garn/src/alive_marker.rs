@@ -1,5 +1,7 @@
 use crate::constants;
-use crate::interface::error_handling::raise_unrecoverable_error;
+use crate::interface::error_handling::raise_unrecoverable_error_custom;
+use nix::sys::signal::{Signal, raise};
+use nix::unistd::pause;
 use std::marker::PhantomData;
 use std::ptr;
 use std::rc::Rc;
@@ -16,7 +18,15 @@ impl AliveMarker {
         // SAFETY: If this function is called from safe Rust, reading this attribute is obviously safe.
         let marker = unsafe { ptr::read_volatile(&raw const self.0) };
         if marker != constants::ALIVE_MARKER {
-            raise_unrecoverable_error("Tried to use a resource after its destruction.");
+            raise_unrecoverable_error_custom(
+                "Tried to use a resource after its destruction.",
+                || {
+                    let _ = raise(Signal::SIGSEGV);
+                    // For the abnormal case that the SIGSEGV signal got caught
+                    pause();
+                    std::process::abort();
+                },
+            );
         }
     }
 }

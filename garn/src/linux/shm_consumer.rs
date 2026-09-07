@@ -2,7 +2,7 @@ use crate::interface::error_handling::PartialError;
 use crate::util::warn;
 use crate::{ffi_partial_error, ffi_partial_error_with_details};
 use garnshared::linux::traits::ShmCompatible;
-use nix::sys::mman::{MapFlags, ProtFlags, mmap, munmap};
+use nix::sys::mman::{MapFlags, ProtFlags, mmap, mprotect, munmap};
 use nix::sys::stat::fstat;
 use nix::unistd::{SysconfVar, sysconf};
 use std::collections::HashMap;
@@ -60,7 +60,10 @@ impl ShmConsumer {
         page: usize,
         offset: usize,
     ) -> Result<*const T, PartialError> {
-        if offset + size_of::<T>() > self.page_size {
+        let end = offset
+            .checked_add(size_of::<T>())
+            .ok_or(ffi_partial_error!(ShmAccessOutOfBounds))?;
+        if end > self.page_size {
             return Err(ffi_partial_error!(ShmAccessOutOfBounds));
         }
         if !offset.is_multiple_of(align_of::<T>()) {
@@ -111,6 +114,15 @@ impl ShmConsumer {
             )
         } {
             Ok(res) => {
+                // SAFETY: `res` is valid and page-aligned
+                if let Err(e) = unsafe {
+                    mprotect(res, page_size, ProtFlags::PROT_READ | ProtFlags::PROT_WRITE)
+                } {
+                    return Err(ffi_partial_error_with_details!(
+                        SharedMemoryError,
+                        e.to_string()
+                    ));
+                }
                 dest.insert(Page {
                     _fd: fd,
                     mem: res.cast::<u8>(),

@@ -1,4 +1,6 @@
+use std::convert::Infallible;
 use std::ffi::{CStr, CString, c_char};
+use std::hint::unreachable_unchecked;
 
 #[macro_export]
 macro_rules! handle_panics {
@@ -96,9 +98,18 @@ pub use {
     ffi_no_error, ffi_partial_error_with_details,
 };
 
-pub fn raise_unrecoverable_error(message: &str) -> ! {
+pub fn raise_unrecoverable_error_custom(
+    message: &str,
+    exit_mechanism: impl FnOnce() -> Infallible,
+) -> ! {
     eprintln!("garn: FATAL! {message}");
-    std::process::abort();
+    exit_mechanism();
+    // SAFETY: The above line returns Infallible, so this line is definitely unreachable
+    unsafe { unreachable_unchecked() }
+}
+
+pub fn raise_unrecoverable_error(message: &str) -> ! {
+    raise_unrecoverable_error_custom(message, || std::process::abort())
 }
 
 #[repr(usize)]

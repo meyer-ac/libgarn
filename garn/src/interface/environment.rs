@@ -53,6 +53,8 @@ pub unsafe extern "C" fn garn_environment_destroy(env: *mut Environment) -> *mut
                 return ffi_error_with_arg!(NonNullReferenceViolation, env);
             };
 
+            env.check_alive();
+
             if env.get_owner_thread() != thread::current().id() {
                 return ffi_error_with_arg!(ThreadOwnershipViolation, env);
             }
@@ -78,6 +80,8 @@ pub unsafe extern "C" fn garn_environment_open_mutex(
             let Some(env) = (unsafe { env.as_ref() }) else {
                 return ffi_error_with_arg!(NonNullReferenceViolation, env);
             };
+
+            env.check_alive();
 
             if env.get_owner_thread() != thread::current().id() {
                 return ffi_error_with_arg!(ThreadOwnershipViolation, env);
