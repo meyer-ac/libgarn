@@ -11,7 +11,7 @@ pub struct Mutex(PthreadMutex);
 
 // Note: A use-after-destroy detection mechanism that is thread-safe would be too expensive.
 // Luckily, this type only ever lives in shared memory when used through the C library, so
-// any use-after-destroy automatically results in a SIGSEGV.
+// any use-after-destroy almost always results in a SIGSEGV.
 // When this type is used through safe Rust though, a use-after-destroy is impossible anyway.
 impl PlatformMutex for Mutex {
     fn lock(&self) -> Result<(), PartialError> {
