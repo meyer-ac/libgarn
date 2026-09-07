@@ -118,7 +118,6 @@ pub enum ErrorType {
     MutexError = 12,
     ShmAccessOutOfBounds = 13,
     ShmMisalignedAccess = 14,
-    UseAfterDestroy = 15,
 }
 
 impl ErrorType {
@@ -137,8 +136,7 @@ impl ErrorType {
             Self::MutexTrylockFailed => c"Tried to lock an already locked mutex in a non-blocking manner.",
             Self::MutexError => c"An internal mutex error occurred.",
             Self::ShmAccessOutOfBounds => c"Tried to access a shared resource outside of the page bounds.",
-            Self::ShmMisalignedAccess => c"Tried to access a misaligned shared resource.",
-            Self::UseAfterDestroy => c"Tried to use a resource after its destruction."
+            Self::ShmMisalignedAccess => c"Tried to access a misaligned shared resource."
         }.as_ptr()
     }
 }
