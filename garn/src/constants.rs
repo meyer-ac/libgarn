@@ -1,0 +1,1 @@
+pub const ALIVE_MARKER: u64 = 0x6C69_6267_6172_6E00;

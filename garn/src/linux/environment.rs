@@ -1,3 +1,4 @@
+use crate::alive_marker::AliveMarker;
 use crate::ffi_partial_error_with_details;
 use crate::interface::error_handling::PartialError;
 use crate::linux::mutex::Mutex;
@@ -24,6 +25,7 @@ pub struct Environment {
     open_mutexes: HashMap<String, *const Mutex>,
     socket: OwnedFd,
     shm_consumer: ShmConsumer,
+    alive_marker: AliveMarker,
 }
 
 impl PlatformEnvironment for Environment {
@@ -130,6 +132,7 @@ impl PlatformEnvironment for Environment {
             open_mutexes: HashMap::new(),
             socket,
             shm_consumer,
+            alive_marker: AliveMarker::new(),
         })
     }
 
@@ -139,6 +142,8 @@ impl PlatformEnvironment for Environment {
 
     #[allow(refining_impl_trait)]
     fn open_mutex(&mut self, name: &str) -> Result<*const Mutex, PartialError> {
+        self.alive_marker.check()?;
+
         if let Some(&mutex) = self.open_mutexes.get(name) {
             return Ok(mutex);
         }
