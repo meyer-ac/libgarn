@@ -2,7 +2,7 @@ use crate::interface::error_handling::PartialError;
 use crate::util::warn;
 use crate::{ffi_partial_error, ffi_partial_error_with_details};
 use garnshared::linux::traits::ShmCompatible;
-use nix::sys::mman::{MapFlags, ProtFlags, mmap, mprotect, munmap};
+use nix::sys::mman::{MapFlags, ProtFlags, mmap, munmap};
 use nix::sys::stat::fstat;
 use nix::unistd::{SysconfVar, sysconf};
 use std::collections::HashMap;

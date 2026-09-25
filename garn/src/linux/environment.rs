@@ -6,8 +6,8 @@ use crate::linux::shm_consumer::ShmConsumer;
 use crate::platform_traits::PlatformEnvironment;
 use garnshared::constants::{ENVIRONMENT_RESPONSE_SIZE, MAX_NAME_LEN, WELCOME_RESPONSE_SIZE};
 use garnshared::environment_protocol::{EnvironmentRequest, EnvironmentResponse};
-use garnshared::error_types::SerializeError;
 use garnshared::linux::pthread_mutex::PthreadMutex;
+use garnshared::message_parser::MessageProtocolError;
 use garnshared::welcome_protocol::{WelcomeRequest, WelcomeResponse};
 use nix::cmsg_space;
 use nix::sys::socket::AddressFamily::Unix;
@@ -33,30 +33,18 @@ impl PlatformEnvironment for Environment {
     fn new(name: &str) -> Result<Self, PartialError> {
         let shm_consumer = ShmConsumer::new()?;
 
-        let socket = match socket(Unix, SeqPacket, SockFlag::SOCK_CLOEXEC, None) {
-            Ok(res) => res,
-            Err(e) => {
-                return Err(ffi_partial_error_with_details!(
-                    ServiceCommunicationFailed,
-                    e.to_string()
-                ));
-            }
-        };
+        let socket = socket(Unix, SeqPacket, SockFlag::SOCK_CLOEXEC, None).map_err(|e| {
+            ffi_partial_error_with_details!(ServiceCommunicationFailed, e.to_string())
+        })?;
 
         let welcome_sock_name = String::from_iter([
             garnshared::constants::ABSTRACT_SOCK_NAME_PREFIX,
             garnshared::constants::WELCOME_SOCK_ABSTRACT_NAME,
         ]);
 
-        let addr = match UnixAddr::new_abstract(welcome_sock_name.as_bytes()) {
-            Ok(res) => res,
-            Err(e) => {
-                return Err(ffi_partial_error_with_details!(
-                    ServiceCommunicationFailed,
-                    e.to_string()
-                ));
-            }
-        };
+        let addr = UnixAddr::new_abstract(welcome_sock_name.as_bytes()).map_err(|e| {
+            ffi_partial_error_with_details!(ServiceCommunicationFailed, e.to_string())
+        })?;
 
         if let Err(e) = connect(socket.as_raw_fd(), &addr) {
             return Err(ffi_partial_error_with_details!(
@@ -67,13 +55,24 @@ impl PlatformEnvironment for Environment {
 
         let request = match WelcomeRequest::OpenEnvironment(name.to_owned()).serialize() {
             Ok(res) => res,
-            Err(SerializeError::NameTooLongError) => {
+            Err(MessageProtocolError::ArgumentTooLong {
+                mnemonic: _,
+                argument_number: _,
+                max_len: _,
+                actual_len: _,
+            }) => {
                 return Err(ffi_partial_error_with_details!(
                     NameTooLong,
                     format!(
                         "The maximum length of an environment name is {} bytes.",
                         MAX_NAME_LEN
                     )
+                ));
+            }
+            Err(e) => {
+                return Err(ffi_partial_error_with_details!(
+                    SerializationError,
+                    e.to_string()
                 ));
             }
         };
@@ -94,22 +93,13 @@ impl PlatformEnvironment for Environment {
             ));
         }
 
-        let response_str = match String::from_utf8(buffer.to_vec()) {
-            Ok(res) => res,
-            Err(e) => {
-                return Err(ffi_partial_error_with_details!(
-                    ServiceCommunicationFailed,
-                    e.to_string()
-                ));
-            }
-        };
+        let response_str = String::from_utf8(buffer.to_vec()).map_err(|e| {
+            ffi_partial_error_with_details!(ServiceCommunicationFailed, e.to_string())
+        })?;
 
-        let Some(response) = WelcomeResponse::deserialize(&response_str) else {
-            return Err(ffi_partial_error_with_details!(
-                ServiceCommunicationFailed,
-                String::from("Deserialization of the service response failed.")
-            ));
-        };
+        let response = WelcomeResponse::deserialize(&response_str).map_err(|e| {
+            ffi_partial_error_with_details!(ServiceCommunicationFailed, e.to_string())
+        })?;
 
         match response {
             WelcomeResponse::MalformedRequest => {
@@ -153,13 +143,19 @@ impl PlatformEnvironment for Environment {
         let request = EnvironmentRequest::OpenMutex(name.to_owned())
             .serialize()
             .map_err(|e| match e {
-                SerializeError::NameTooLongError => ffi_partial_error_with_details!(
+                MessageProtocolError::ArgumentTooLong {
+                    mnemonic: _,
+                    argument_number: _,
+                    max_len: _,
+                    actual_len: _,
+                } => ffi_partial_error_with_details!(
                     NameTooLong,
                     format!(
                         "The maximum length of a mutex name is {} bytes.",
                         MAX_NAME_LEN
                     )
                 ),
+                e => ffi_partial_error_with_details!(SerializationError, e.to_string()),
             })?;
 
         send(
@@ -200,12 +196,9 @@ impl PlatformEnvironment for Environment {
             ffi_partial_error_with_details!(ServiceCommunicationFailed, e.to_string())
         })?;
 
-        let response = EnvironmentResponse::deserialize(response_str).ok_or(
-            ffi_partial_error_with_details!(
-                ServiceCommunicationFailed,
-                String::from("Deserialization of the service response failed.")
-            ),
-        )?;
+        let response = EnvironmentResponse::deserialize(response_str).map_err(|e| {
+            ffi_partial_error_with_details!(ServiceCommunicationFailed, e.to_string())
+        })?;
 
         let (page, offset) = match response {
             EnvironmentResponse::MalformedRequest => {
