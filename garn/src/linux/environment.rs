@@ -95,11 +95,11 @@ impl PlatformEnvironment for Environment {
             ));
         }
 
-        let response_str = String::from_utf8(buffer.to_vec()).map_err(|e| {
+        let response_str = str::from_utf8(&buffer).map_err(|e| {
             ffi_partial_error_with_details!(ServiceCommunicationFailed, e.to_string())
         })?;
 
-        let response = WelcomeResponse::deserialize(&response_str).map_err(|e| {
+        let response = WelcomeResponse::deserialize(response_str).map_err(|e| {
             ffi_partial_error_with_details!(ServiceCommunicationFailed, e.to_string())
         })?;
 
