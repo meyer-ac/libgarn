@@ -4,11 +4,13 @@ use crate::interface::error_handling::PartialError;
 use crate::linux::mutex::Mutex;
 use crate::linux::shm_consumer::ShmConsumer;
 use crate::platform_traits::PlatformEnvironment;
-use garnshared::constants::{ENVIRONMENT_RESPONSE_SIZE, MAX_NAME_LEN, WELCOME_RESPONSE_SIZE};
-use garnshared::environment_protocol::{EnvironmentRequest, EnvironmentResponse};
+use garnshared::constants::MAX_NAME_LEN;
+use garnshared::environment_protocol::{
+    ENVIRONMENT_RESPONSE_PROTOCOL, EnvironmentRequest, EnvironmentResponse,
+};
 use garnshared::linux::pthread_mutex::PthreadMutex;
 use garnshared::message_parser::MessageProtocolError;
-use garnshared::welcome_protocol::{WelcomeRequest, WelcomeResponse};
+use garnshared::welcome_protocol::{WELCOME_RESPONSE_PROTOCOL, WelcomeRequest, WelcomeResponse};
 use nix::cmsg_space;
 use nix::sys::socket::AddressFamily::Unix;
 use nix::sys::socket::SockType::SeqPacket;
@@ -84,7 +86,7 @@ impl PlatformEnvironment for Environment {
             ));
         }
 
-        let mut buffer: [u8; WELCOME_RESPONSE_SIZE] = [0; WELCOME_RESPONSE_SIZE];
+        let mut buffer = vec![0u8; WELCOME_RESPONSE_PROTOCOL.max_size()].into_boxed_slice();
 
         if let Err(e) = recv(socket.as_raw_fd(), &mut buffer, MsgFlags::empty()) {
             return Err(ffi_partial_error_with_details!(
@@ -165,7 +167,7 @@ impl PlatformEnvironment for Environment {
         )
         .map_err(|e| ffi_partial_error_with_details!(ServiceCommunicationFailed, e.to_string()))?;
 
-        let mut buffer: [u8; ENVIRONMENT_RESPONSE_SIZE] = [0; ENVIRONMENT_RESPONSE_SIZE];
+        let mut buffer = vec![0u8; ENVIRONMENT_RESPONSE_PROTOCOL.max_size()].into_boxed_slice();
         let mut iov = [IoSliceMut::new(&mut buffer)];
         let mut cmsg_buffer = cmsg_space!([RawFd; 1]);
 
