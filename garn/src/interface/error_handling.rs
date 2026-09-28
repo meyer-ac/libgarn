@@ -130,6 +130,7 @@ pub enum ErrorType {
     ShmAccessOutOfBounds = 13,
     ShmMisalignedAccess = 14,
     SerializationError = 15,
+    PoisonedMutex = 16,
 }
 
 impl ErrorType {
@@ -150,6 +151,7 @@ impl ErrorType {
             Self::ShmAccessOutOfBounds => c"Tried to access a shared resource outside of the page bounds.",
             Self::ShmMisalignedAccess => c"Tried to access a misaligned shared resource.",
             Self::SerializationError => c"Failed to serialize a message.",
+            Self::PoisonedMutex => c"The acquired mutex is poisoned, inner state may be invalid.",
         }.as_ptr()
     }
 }

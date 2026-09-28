@@ -23,11 +23,11 @@ impl PlatformMutex for Mutex {
             libc::EDEADLK => Err(ffi_partial_error!(MutexNestedLock)),
             libc::EOWNERDEAD => {
                 // not an actual error, just means the previous owner dies before unlocking
-                // we just have to reclaim ownership again
+                // we just have to reclaim ownership again and inform the caller
                 if unsafe { pthread_mutex_consistent(self.0.mutex.get().cast::<pthread_mutex_t>()) }
                     == 0
                 {
-                    Ok(())
+                    Err(ffi_partial_error!(PoisonedMutex))
                 } else {
                     Err(ffi_partial_error_with_details!(
                         MutexError,
@@ -57,6 +57,20 @@ impl PlatformMutex for Mutex {
         match unsafe { pthread_mutex_trylock(self.0.mutex.get().cast::<pthread_mutex_t>()) } {
             0 => Ok(()),
             libc::EBUSY => Err(ffi_partial_error!(MutexTrylockFailed)),
+            libc::EOWNERDEAD => {
+                // not an actual error, just means the previous owner dies before unlocking
+                // we just have to reclaim ownership again and inform the caller
+                if unsafe { pthread_mutex_consistent(self.0.mutex.get().cast::<pthread_mutex_t>()) }
+                    == 0
+                {
+                    Err(ffi_partial_error!(PoisonedMutex))
+                } else {
+                    Err(ffi_partial_error_with_details!(
+                        MutexError,
+                        Error::last_os_error().to_string()
+                    ))
+                }
+            }
             _ => Err(ffi_partial_error_with_details!(
                 MutexError,
                 Error::last_os_error().to_string()
