@@ -3,7 +3,10 @@ use crate::platform_traits::PlatformMutex;
 use crate::{ffi_partial_error, ffi_partial_error_with_details};
 use garnshared::linux::pthread_mutex::PthreadMutex;
 use nix::libc;
-use nix::libc::{pthread_mutex_lock, pthread_mutex_t, pthread_mutex_trylock, pthread_mutex_unlock};
+use nix::libc::{
+    pthread_mutex_consistent, pthread_mutex_lock, pthread_mutex_t, pthread_mutex_trylock,
+    pthread_mutex_unlock,
+};
 use std::io::Error;
 
 #[repr(transparent)]
@@ -18,6 +21,20 @@ impl PlatformMutex for Mutex {
         match unsafe { pthread_mutex_lock(self.0.mutex.get().cast::<pthread_mutex_t>()) } {
             0 => Ok(()),
             libc::EDEADLK => Err(ffi_partial_error!(MutexNestedLock)),
+            libc::EOWNERDEAD => {
+                // not an actual error, just means the previous owner dies before unlocking
+                // we just have to reclaim ownership again
+                if unsafe { pthread_mutex_consistent(self.0.mutex.get().cast::<pthread_mutex_t>()) }
+                    == 0
+                {
+                    Ok(())
+                } else {
+                    Err(ffi_partial_error_with_details!(
+                        MutexError,
+                        Error::last_os_error().to_string()
+                    ))
+                }
+            }
             _ => Err(ffi_partial_error_with_details!(
                 MutexError,
                 Error::last_os_error().to_string()
