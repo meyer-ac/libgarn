@@ -14,6 +14,8 @@ pub trait PlatformEnvironment {
 
 pub trait PlatformMutex {
     fn lock(&self) -> Result<(), PartialError>;
-    fn unlock(&self) -> Result<(), PartialError>;
+    fn lock_lenient(&self) -> Result<(), PartialError>;
     fn try_lock(&self) -> Result<(), PartialError>;
+    fn try_lock_lenient(&self) -> Result<(), PartialError>;
+    fn unlock(&self) -> Result<(), PartialError>;
 }

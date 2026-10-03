@@ -25,13 +25,13 @@ pub unsafe extern "C" fn garn_mutex_lock(mutex: *const Mutex) -> *mut Error {
 
 #[unsafe(no_mangle)]
 #[ffi_error_propagation]
-pub unsafe extern "C" fn garn_mutex_unlock(mutex: *const Mutex) -> *mut Error {
+pub unsafe extern "C" fn garn_mutex_lock_lenient(mutex: *const Mutex) -> *mut Error {
     handle_panics!({
         let Some(mutex) = (unsafe { mutex.as_ref() }) else {
             return ffi_error_with_arg!(NonNullReferenceViolation, mutex);
         };
 
-        if let Err(e) = mutex.unlock() {
+        if let Err(e) = mutex.lock_lenient() {
             return ffi_error_from_partial!(e);
         }
 
@@ -48,6 +48,38 @@ pub unsafe extern "C" fn garn_mutex_try_lock(mutex: *const Mutex) -> *mut Error 
         };
 
         if let Err(e) = mutex.try_lock() {
+            return ffi_error_from_partial!(e);
+        }
+
+        ffi_no_error!()
+    })
+}
+
+#[unsafe(no_mangle)]
+#[ffi_error_propagation]
+pub unsafe extern "C" fn garn_mutex_try_lock_lenient(mutex: *const Mutex) -> *mut Error {
+    handle_panics!({
+        let Some(mutex) = (unsafe { mutex.as_ref() }) else {
+            return ffi_error_with_arg!(NonNullReferenceViolation, mutex);
+        };
+
+        if let Err(e) = mutex.try_lock_lenient() {
+            return ffi_error_from_partial!(e);
+        }
+
+        ffi_no_error!()
+    })
+}
+
+#[unsafe(no_mangle)]
+#[ffi_error_propagation]
+pub unsafe extern "C" fn garn_mutex_unlock(mutex: *const Mutex) -> *mut Error {
+    handle_panics!({
+        let Some(mutex) = (unsafe { mutex.as_ref() }) else {
+            return ffi_error_with_arg!(NonNullReferenceViolation, mutex);
+        };
+
+        if let Err(e) = mutex.unlock() {
             return ffi_error_from_partial!(e);
         }
 

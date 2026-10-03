@@ -151,7 +151,7 @@ impl ErrorType {
             Self::ShmAccessOutOfBounds => c"Tried to access a shared resource outside of the page bounds.",
             Self::ShmMisalignedAccess => c"Tried to access a misaligned shared resource.",
             Self::SerializationError => c"Failed to serialize a message.",
-            Self::PoisonedMutex => c"The acquired mutex is poisoned, inner state may be invalid.",
+            Self::PoisonedMutex => c"The lock has been poisoned because another thread died while holding it and either this thread or another thread beforehand tried to acquire it in a non-lenient manner."
         }.as_ptr()
     }
 }

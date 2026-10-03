@@ -21,13 +21,79 @@ impl PlatformMutex for Mutex {
         match unsafe { pthread_mutex_lock(self.0.mutex.get().cast::<pthread_mutex_t>()) } {
             0 => Ok(()),
             libc::EDEADLK => Err(ffi_partial_error!(MutexNestedLock)),
+            libc::ENOTRECOVERABLE => Err(ffi_partial_error!(PoisonedMutex)),
+            libc::EOWNERDEAD => {
+                // poison the mutex permanently on purpose by not calling pthread_mutex_consistent
+                // and unlocking it
+                let _ =
+                    unsafe { pthread_mutex_unlock(self.0.mutex.get().cast::<pthread_mutex_t>()) };
+                Err(ffi_partial_error!(PoisonedMutex))
+            }
+            _ => Err(ffi_partial_error_with_details!(
+                MutexError,
+                Error::last_os_error().to_string()
+            )),
+        }
+    }
+
+    fn lock_lenient(&self) -> Result<(), PartialError> {
+        match unsafe { pthread_mutex_lock(self.0.mutex.get().cast::<pthread_mutex_t>()) } {
+            0 => Ok(()),
+            libc::EDEADLK => Err(ffi_partial_error!(MutexNestedLock)),
+            libc::ENOTRECOVERABLE => Err(ffi_partial_error!(PoisonedMutex)),
             libc::EOWNERDEAD => {
                 // not an actual error, just means the previous owner dies before unlocking
-                // we just have to reclaim ownership again and inform the caller
+                // we just have to reclaim ownership again
                 if unsafe { pthread_mutex_consistent(self.0.mutex.get().cast::<pthread_mutex_t>()) }
                     == 0
                 {
-                    Err(ffi_partial_error!(PoisonedMutex))
+                    Ok(())
+                } else {
+                    Err(ffi_partial_error_with_details!(
+                        MutexError,
+                        Error::last_os_error().to_string()
+                    ))
+                }
+            }
+            _ => Err(ffi_partial_error_with_details!(
+                MutexError,
+                Error::last_os_error().to_string()
+            )),
+        }
+    }
+
+    fn try_lock(&self) -> Result<(), PartialError> {
+        match unsafe { pthread_mutex_trylock(self.0.mutex.get().cast::<pthread_mutex_t>()) } {
+            0 => Ok(()),
+            libc::EBUSY => Err(ffi_partial_error!(MutexTrylockFailed)),
+            libc::EDEADLK => Err(ffi_partial_error!(MutexNestedLock)),
+            libc::ENOTRECOVERABLE => Err(ffi_partial_error!(PoisonedMutex)),
+            libc::EOWNERDEAD => {
+                // poison the mutex permanently on purpose by not calling pthread_mutex_consistent
+                // and unlocking it
+                let _ =
+                    unsafe { pthread_mutex_unlock(self.0.mutex.get().cast::<pthread_mutex_t>()) };
+                Err(ffi_partial_error!(PoisonedMutex))
+            }
+            _ => Err(ffi_partial_error_with_details!(
+                MutexError,
+                Error::last_os_error().to_string()
+            )),
+        }
+    }
+
+    fn try_lock_lenient(&self) -> Result<(), PartialError> {
+        match unsafe { pthread_mutex_trylock(self.0.mutex.get().cast::<pthread_mutex_t>()) } {
+            0 => Ok(()),
+            libc::EBUSY => Err(ffi_partial_error!(MutexTrylockFailed)),
+            libc::ENOTRECOVERABLE => Err(ffi_partial_error!(PoisonedMutex)),
+            libc::EOWNERDEAD => {
+                // not an actual error, just means the previous owner dies before unlocking
+                // we just have to reclaim ownership again
+                if unsafe { pthread_mutex_consistent(self.0.mutex.get().cast::<pthread_mutex_t>()) }
+                    == 0
+                {
+                    Ok(())
                 } else {
                     Err(ffi_partial_error_with_details!(
                         MutexError,
@@ -46,31 +112,6 @@ impl PlatformMutex for Mutex {
         match unsafe { pthread_mutex_unlock(self.0.mutex.get().cast::<pthread_mutex_t>()) } {
             0 => Ok(()),
             libc::EPERM => Err(ffi_partial_error!(MutexUnauthorizedUnlock)),
-            _ => Err(ffi_partial_error_with_details!(
-                MutexError,
-                Error::last_os_error().to_string()
-            )),
-        }
-    }
-
-    fn try_lock(&self) -> Result<(), PartialError> {
-        match unsafe { pthread_mutex_trylock(self.0.mutex.get().cast::<pthread_mutex_t>()) } {
-            0 => Ok(()),
-            libc::EBUSY => Err(ffi_partial_error!(MutexTrylockFailed)),
-            libc::EOWNERDEAD => {
-                // not an actual error, just means the previous owner dies before unlocking
-                // we just have to reclaim ownership again and inform the caller
-                if unsafe { pthread_mutex_consistent(self.0.mutex.get().cast::<pthread_mutex_t>()) }
-                    == 0
-                {
-                    Err(ffi_partial_error!(PoisonedMutex))
-                } else {
-                    Err(ffi_partial_error_with_details!(
-                        MutexError,
-                        Error::last_os_error().to_string()
-                    ))
-                }
-            }
             _ => Err(ffi_partial_error_with_details!(
                 MutexError,
                 Error::last_os_error().to_string()
