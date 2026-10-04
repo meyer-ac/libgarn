@@ -203,7 +203,7 @@ dependencies = [
 [[package]]
 name = "garnshared"
 version = "0.1.0"
-source = "git+https://github.com/meyer-ac/garnshared#c1d7bb36bdedca074a0d5c7bf033a07a395face0"
+source = "git+https://github.com/meyer-ac/garnshared#020c4ebde0c5f02dcb81325f29718477cf37d52c"
 dependencies = [
  "cfg-if",
  "hashed-type-def",
