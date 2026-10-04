@@ -48,7 +48,12 @@ impl PlatformMutex for Mutex {
                 pthread_result_errno!(unsafe {
                     pthread_mutex_consistent(self.0.mutex.get().cast::<pthread_mutex_t>())
                 })
-                .map_err(|e| ffi_partial_error_with_details!(MutexError, e.to_string()))
+                .map_err(|e| {
+                    let _ = unsafe {
+                        pthread_mutex_unlock(self.0.mutex.get().cast::<pthread_mutex_t>())
+                    };
+                    ffi_partial_error_with_details!(MutexError, e.to_string())
+                })
             }
             e => Err(ffi_partial_error_with_details!(MutexError, e.to_string())),
         })
@@ -86,7 +91,12 @@ impl PlatformMutex for Mutex {
                 pthread_result_errno!(unsafe {
                     pthread_mutex_consistent(self.0.mutex.get().cast::<pthread_mutex_t>())
                 })
-                .map_err(|e| ffi_partial_error_with_details!(MutexError, e.to_string()))
+                .map_err(|e| {
+                    let _ = unsafe {
+                        pthread_mutex_unlock(self.0.mutex.get().cast::<pthread_mutex_t>())
+                    };
+                    ffi_partial_error_with_details!(MutexError, e.to_string())
+                })
             }
             e => Err(ffi_partial_error_with_details!(MutexError, e.to_string())),
         })
