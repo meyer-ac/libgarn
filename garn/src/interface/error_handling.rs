@@ -91,6 +91,7 @@ macro_rules! ffi_no_error {
     };
 }
 
+use crate::constants;
 #[allow(unused_imports)]
 // This is not really an import but a macro export, and we really want to make all of these macros available
 pub use {
@@ -131,6 +132,7 @@ pub enum ErrorType {
     ShmMisalignedAccess = 14,
     SerializationError = 15,
     PoisonedMutex = 16,
+    InvalidErrorObjectMetaError = 17,
 }
 
 impl ErrorType {
@@ -151,7 +153,8 @@ impl ErrorType {
             Self::ShmAccessOutOfBounds => c"Tried to access a shared resource outside of the page bounds.",
             Self::ShmMisalignedAccess => c"Tried to access a misaligned shared resource.",
             Self::SerializationError => c"Failed to serialize a message.",
-            Self::PoisonedMutex => c"The lock has been poisoned because another thread died while holding it and either this thread or another thread beforehand tried to acquire it in a non-lenient manner."
+            Self::PoisonedMutex => c"The lock has been poisoned because another thread died while holding it and either this thread or another thread beforehand tried to acquire it in a non-lenient manner.",
+            Self::InvalidErrorObjectMetaError => c"Tried to retrieve the error code of an invalid error object. THIS IS NOT THE ACTUAL ERROR THAT MIGHT HAVE OCCURRED! This is just a message that the actual error code could not be read from the provided error object."
         }.as_ptr()
     }
 }
@@ -213,13 +216,14 @@ impl Error {
     }
 
     pub fn from_partial(partial_error: PartialError, fn_name: *const c_char) -> Self {
-        let details_c = partial_error.details.map(|details| {
-            CString::new(details).unwrap_or_else(|_| {
-            raise_unrecoverable_error(
-                "Error object is in an invalid state: details contains an internal null character.",
-            )
-        })
-        });
+        let details_c =
+            partial_error.details.map(|details| {
+                CString::new(details).unwrap_or_else(|_| {
+                    raise_unrecoverable_error(
+                        "Error object is in an invalid state: details contains an internal null character.",
+                    )
+                })
+            });
         Self {
             error_type: partial_error.error_type,
             message: partial_error.error_type.get_c_error_message(),
@@ -235,13 +239,14 @@ impl Error {
         fn_name: *const c_char,
         arg_name: *const c_char,
     ) -> Self {
-        let details_c = partial_error.details.map(|details| {
-            CString::new(details).unwrap_or_else(|_| {
-            raise_unrecoverable_error(
-                "Error object is in an invalid state: details contains an internal null character.",
-            )
-        })
-        });
+        let details_c =
+            partial_error.details.map(|details| {
+                CString::new(details).unwrap_or_else(|_| {
+                    raise_unrecoverable_error(
+                        "Error object is in an invalid state: details contains an internal null character.",
+                    )
+                })
+            });
         Self {
             error_type: partial_error.error_type,
             message: partial_error.error_type.get_c_error_message(),
@@ -249,6 +254,14 @@ impl Error {
             arg_name,
             details: details_c,
         }
+    }
+
+    fn invalidate(&mut self) {
+        self.error_type = ErrorType::InvalidErrorObjectMetaError;
+        self.message = self.error_type.get_c_error_message();
+        self.fn_name = constants::META_ERROR_FUNCTION_NAME;
+        self.arg_name = std::ptr::null();
+        self.details = None;
     }
 
     unsafe fn get_message(&self) -> &str {
@@ -305,50 +318,98 @@ impl Error {
     }
 }
 
+impl Drop for Error {
+    fn drop(&mut self) {
+        self.invalidate();
+    }
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn garn_error_get_code(error: *const Error) -> usize {
-    unsafe { &*error }.error_type as usize
+    handle_panics!({
+        if error.is_null() {
+            ErrorType::InvalidErrorObjectMetaError as usize
+        } else {
+            unsafe { &*error }.error_type as usize
+        }
+    })
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn garn_error_get_message(error: *const Error) -> *const c_char {
-    unsafe { &*error }.message
+    handle_panics!({
+        if error.is_null() {
+            ErrorType::InvalidErrorObjectMetaError.get_c_error_message()
+        } else {
+            unsafe { &*error }.message
+        }
+    })
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn garn_error_get_function(error: *const Error) -> *const c_char {
-    unsafe { &*error }.fn_name
+    handle_panics!({
+        if error.is_null() {
+            constants::META_ERROR_FUNCTION_NAME
+        } else {
+            unsafe { &*error }.fn_name
+        }
+    })
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn garn_error_get_argument(error: *const Error) -> *const c_char {
-    unsafe { &*error }.arg_name
+    handle_panics!({
+        if error.is_null() {
+            std::ptr::null()
+        } else {
+            unsafe { &*error }.arg_name
+        }
+    })
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn garn_error_get_details(error: *const Error) -> *const c_char {
-    match unsafe { &*error }.details.as_ref() {
-        Some(details) => details.as_ptr(),
-        None => std::ptr::null(),
-    }
+    handle_panics!({
+        if error.is_null() {
+            std::ptr::null()
+        } else {
+            match unsafe { &*error }.details.as_ref() {
+                Some(details) => details.as_ptr(),
+                None => std::ptr::null(),
+            }
+        }
+    })
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn garn_error_handled(error: *mut Error) {
-    if let Some(error_details) = unsafe { Box::from_raw(error) }.details {
-        drop(error_details);
-    }
+    handle_panics!({
+        if error.is_null() {
+            return;
+        }
+        drop(unsafe { Box::from_raw(error) });
+    });
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn garn_error_print(error: *const Error) {
-    let error = unsafe { &*error };
-    eprintln!("garn: {}", unsafe { error.get_message() });
-    eprintln!("      In function: {}", unsafe { error.get_fn_name() });
-    if let Some(arg_name) = unsafe { error.get_arg_name() } {
-        eprintln!("      Responsible argument: {arg_name}");
-    }
-    if let Some(details) = unsafe { error.get_details() } {
-        eprintln!("      Additional details: {details}");
-    }
+    handle_panics!({
+        let error = if error.is_null() {
+            &Error::new(
+                ErrorType::InvalidErrorObjectMetaError,
+                constants::META_ERROR_FUNCTION_NAME,
+            )
+        } else {
+            unsafe { &*error }
+        };
+        eprintln!("garn: {}", unsafe { error.get_message() });
+        eprintln!("      In function: {}", unsafe { error.get_fn_name() });
+        if let Some(arg_name) = unsafe { error.get_arg_name() } {
+            eprintln!("      Responsible argument: {arg_name}");
+        }
+        if let Some(details) = unsafe { error.get_details() } {
+            eprintln!("      Additional details: {details}");
+        }
+    });
 }
