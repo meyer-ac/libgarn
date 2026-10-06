@@ -90,6 +90,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cc"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f74872d07caf508b30a21f6836e7d7016a2eaf7d9ff4f48deaa58cd8a0407630"
+dependencies = [
+ "find-msvc-tools",
+ "shlex",
+]
+
+[[package]]
 name = "cfg-if"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -157,6 +167,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
 
 [[package]]
+name = "find-msvc-tools"
+version = "0.1.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aedcfb3409746eddb02b9e19ebda1c3394f759a152e48ee875a0844d1b955484"
+
+[[package]]
 name = "futures-core"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -181,10 +197,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "garn"
+name = "garn-proc-macros"
+version = "0.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.3",
+]
+
+[[package]]
+name = "garndynamic"
 version = "0.1.0"
 dependencies = [
- "cbindgen",
+ "cc",
  "cfg-if",
  "garn-proc-macros",
  "garnshared",
@@ -192,12 +217,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "garn-proc-macros"
-version = "0.0.0"
+name = "garnheaders"
+version = "0.1.0"
 dependencies = [
- "proc-macro2",
- "quote",
- "syn 3.0.3",
+ "cbindgen",
 ]
 
 [[package]]
@@ -209,6 +232,17 @@ dependencies = [
  "hashed-type-def",
  "nix",
  "uuid",
+]
+
+[[package]]
+name = "garnstatic"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "cfg-if",
+ "garn-proc-macros",
+ "garnshared",
+ "nix",
 ]
 
 [[package]]
@@ -507,6 +541,12 @@ checksum = "6662b5879511e06e8999a8a235d848113e942c9124f211511b16466ee2995f26"
 dependencies = [
  "serde_core",
 ]
+
+[[package]]
+name = "shlex"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "slab"

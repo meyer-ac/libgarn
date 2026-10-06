@@ -1,0 +1,21 @@
+[package]
+name = "garndynamic"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "garn"
+crate-type = ["cdylib"]
+path = "../garn/src/lib.rs"
+
+[dependencies]
+cfg-if = { workspace = true }
+nix = { workspace = true }
+garn-proc-macros = { workspace = true }
+garnshared = { workspace = true }
+
+[build-dependencies]
+cc = "1.6.0"
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(cbindgen)'] }

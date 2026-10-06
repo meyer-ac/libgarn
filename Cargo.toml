@@ -1,3 +1,9 @@
 [workspace]
-members = ["garn", "garn-proc-macros"]
+members = ["garn-proc-macros", "garndynamic", "garnheaders", "garnstatic"]
 resolver = "3"
+
+[workspace.dependencies]
+cfg-if = "1.0.4"
+nix = { version = "0.31.3", features = ["user", "fs", "process", "mman", "socket", "event", "uio", "signal"] }
+garn-proc-macros = { path = "garn-proc-macros" }
+garnshared = { git = "https://github.com/meyer-ac/garnshared" }
