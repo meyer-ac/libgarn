@@ -1,5 +1,5 @@
 [workspace]
-members = ["garn-proc-macros", "garndynamic", "garnheaders", "garnstatic"]
+members = ["garn-proc-macros", "garndynamic", "garnheaders", "garnstatic", "xtask"]
 resolver = "3"
 
 [workspace.dependencies]
