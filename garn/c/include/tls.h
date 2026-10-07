@@ -1,1 +1,3 @@
-inline int* tls_buf();
+#pragma once
+
+extern inline int* tls_buf();

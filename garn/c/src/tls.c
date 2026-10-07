@@ -1,3 +1,5 @@
+#include "../include/tls.h"
+
 #include <stdlib.h>
 
 #ifdef LIBGARN_TARGET_STATIC

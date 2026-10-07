@@ -11,7 +11,7 @@ fn main() {
     let mut tls = cc::Build::new();
     tls.opt_level(3);
     tls.include(C_INCLUDE_RELATIVE);
-    tls.define("LIBGARN_TARGET_DYNAMIC", None);
+    tls.define("LIBGARN_TARGET_STATIC", None);
     tls.pic(false);
 
     let c_src = PathBuf::from(C_SRC_RELATIVE);
